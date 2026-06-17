@@ -50,6 +50,15 @@ dotnet build
 dotnet test
 ```
 
+The app icon (a white check mark on a blue rounded square) is drawn in code by `TrayIconFactory`,
+which is the single source of truth. The tray icon is rendered from that code at runtime; the
+committed `src/TodoListMcp.App/Resources/App.ico` is the **executable** icon (Explorer, taskbar,
+Alt-Tab), generated from the same drawing — so the two always match. Regenerate the asset with:
+
+```bash
+TodoListMcp.exe --write-icon src/TodoListMcp.App/Resources/App.ico
+```
+
 ## Configure
 
 On first launch the app writes a starter config to:
