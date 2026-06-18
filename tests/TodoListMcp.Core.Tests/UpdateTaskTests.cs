@@ -116,6 +116,27 @@ public class UpdateTaskTests
     }
 
     [Fact]
+    public void Update_trims_status_and_external_id_and_clears_on_whitespace()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(3, new() { Status = "  In Progress  ", ExternalId = "  GH-7  " });
+
+        var t = doc.GetTask(3)!;
+        Assert.Equal("In Progress", t.Status);   // stored trimmed
+        Assert.Equal("GH-7", t.ExternalId);
+
+        // Whitespace-only clears, and nothing whitespace-y is left in the file.
+        doc.UpdateTask(3, new() { Status = "   ", ExternalId = "   " });
+        var cleared = doc.GetTask(3)!;
+        Assert.Null(cleared.Status);
+        Assert.Null(cleared.ExternalId);
+
+        var xml = doc.ToXmlString();
+        Assert.DoesNotContain("STATUS=", xml);
+        Assert.DoesNotContain("EXTERNALID=", xml);
+    }
+
+    [Fact]
     public void Update_sets_and_clears_start_date()
     {
         var doc = TestData.Sample();

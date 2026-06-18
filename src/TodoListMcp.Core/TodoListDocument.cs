@@ -184,11 +184,11 @@ public sealed class TodoListDocument
     {
         Id = (int?)e.Attribute("ID") ?? 0,
         Title = (string?)e.Attribute("TITLE") ?? "",
-        ExternalId = NullIfEmpty((string?)e.Attribute("EXTERNALID")),
+        ExternalId = TrimToNull((string?)e.Attribute("EXTERNALID")),
         Comments = ReadComments(e),
         Priority = ReadScale(e, "PRIORITY"),
         Risk = ReadScale(e, "RISK"),
-        Status = NullIfEmpty((string?)e.Attribute("STATUS")),
+        Status = TrimToNull((string?)e.Attribute("STATUS")),
         IsFlagged = (string?)e.Attribute("FLAG") == "1",
         PercentDone = (int?)e.Attribute("PERCENTDONE") ?? 0,
         IsDone = e.Attribute("DONEDATE") is { } d && !string.IsNullOrWhiteSpace(d.Value),
@@ -220,7 +220,8 @@ public sealed class TodoListDocument
         return p is null or < 0 ? null : p;
     }
 
-    private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+    /// <summary>Trims and collapses empty/whitespace to null, so read and write agree on "unset".</summary>
+    private static string? TrimToNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
     private static IReadOnlyList<string> ReadMulti(XElement e, string attrName, string childName)
     {
@@ -490,10 +491,10 @@ public sealed class TodoListDocument
     }
 
     private static void SetStatus(XElement e, string status) =>
-        e.SetAttributeValue("STATUS", string.IsNullOrEmpty(status) ? null : status);
+        e.SetAttributeValue("STATUS", TrimToNull(status));
 
     private static void SetExternalId(XElement e, string externalId) =>
-        e.SetAttributeValue("EXTERNALID", string.IsNullOrEmpty(externalId) ? null : externalId);
+        e.SetAttributeValue("EXTERNALID", TrimToNull(externalId));
 
     private static void SetFlag(XElement e, bool flag) =>
         e.SetAttributeValue("FLAG", flag ? "1" : null);
