@@ -75,6 +75,31 @@ public class SearchTests
     }
 
     [Fact]
+    public void Filter_by_time_estimate_normalised_to_hours()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(1, new() { TimeEstimate = 1, TimeEstimateUnit = TimeUnit.Days });      // 8h
+        doc.UpdateTask(2, new() { TimeEstimate = 4, TimeEstimateUnit = TimeUnit.Hours });     // 4h
+        doc.UpdateTask(3, new() { TimeEstimate = 120, TimeEstimateUnit = TimeUnit.Minutes }); // 2h
+
+        Assert.Equal(new[] { 1 }, Ids(doc.Search(new() { MinEstimateHours = 5 })));     // only the 8h task
+        Assert.Equal(new[] { 1, 2 }, Ids(doc.Search(new() { MinEstimateHours = 4 }))); // inclusive
+        Assert.Equal(new[] { 2, 3 }, Ids(doc.Search(new() { MaxEstimateHours = 4 }))); // 4h and 2h
+        Assert.Equal(new[] { 2 }, Ids(doc.Search(new() { MinEstimateHours = 3, MaxEstimateHours = 5 })));
+    }
+
+    [Fact]
+    public void Filter_by_time_spent_and_excludes_tasks_without_a_value()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(2, new() { TimeSpent = 1, TimeSpentUnit = TimeUnit.Weeks }); // 40h; tasks 1 and 3 have none
+
+        Assert.Equal(new[] { 2 }, Ids(doc.Search(new() { MinSpentHours = 40 })));
+        // A max filter still excludes tasks with no recorded time spent.
+        Assert.Equal(new[] { 2 }, Ids(doc.Search(new() { MaxSpentHours = 100 })));
+    }
+
+    [Fact]
     public void Criteria_combine_with_and()
     {
         var doc = TestData.Sample();

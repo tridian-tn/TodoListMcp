@@ -183,6 +183,14 @@ public sealed class TodoListDocument
         if (!string.IsNullOrWhiteSpace(q.AllocatedBy) &&
             !string.Equals(t.AllocatedBy, q.AllocatedBy.Trim(), StringComparison.OrdinalIgnoreCase))
             return false;
+
+        var estHours = InHours(t.TimeEstimate, t.TimeEstimateUnit);
+        if (q.MinEstimateHours is double minE && (estHours is null || estHours < minE)) return false;
+        if (q.MaxEstimateHours is double maxE && (estHours is null || estHours > maxE)) return false;
+
+        var spentHours = InHours(t.TimeSpent, t.TimeSpentUnit);
+        if (q.MinSpentHours is double minS && (spentHours is null || spentHours < minS)) return false;
+        if (q.MaxSpentHours is double maxS && (spentHours is null || spentHours > maxS)) return false;
         return true;
     }
 
@@ -198,6 +206,12 @@ public sealed class TodoListDocument
         Version = TrimToNull((string?)e.Attribute("VERSION")),
         IsFlagged = (string?)e.Attribute("FLAG") == "1",
         PercentDone = (int?)e.Attribute("PERCENTDONE") ?? 0,
+        TimeEstimate = ReadTime(e, "TIMEESTIMATE"),
+        TimeEstimateUnit = ReadTime(e, "TIMEESTIMATE") is null
+            ? null : TimeUnits.ToWord(ReadTimeUnit(e, "TIMEESTUNITS")),
+        TimeSpent = ReadTime(e, "TIMESPENT"),
+        TimeSpentUnit = ReadTime(e, "TIMESPENT") is null
+            ? null : TimeUnits.ToWord(ReadTimeUnit(e, "TIMESPENTUNITS")),
         IsDone = e.Attribute("DONEDATE") is { } d && !string.IsNullOrWhiteSpace(d.Value),
         IsGoodAsDone = (string?)e.Attribute("GOODASDONE") == "1",
         DueDate = ReadOaDate(e, "DUEDATE"),
@@ -230,6 +244,30 @@ public sealed class TodoListDocument
 
     /// <summary>Trims and collapses empty/whitespace to null, so read and write agree on "unset".</summary>
     private static string? TrimToNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    /// <summary>Reads a time amount (a plain decimal in its unit); ToDoList's 0 "no time" maps to null.</summary>
+    private static double? ReadTime(XElement e, string name)
+    {
+        var s = (string?)e.Attribute(name);
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : null;
+    }
+
+    /// <summary>Reads a *UNITS attribute; ToDoList defaults to hours when it's missing or unrecognised.</summary>
+    private static TimeUnit ReadTimeUnit(XElement e, string name)
+    {
+        var s = (string?)e.Attribute(name);
+        if (!string.IsNullOrWhiteSpace(s) && TimeUnits.FromFileCode(s.Trim()[0]) is TimeUnit u)
+            return u;
+        return TimeUnit.Hours;
+    }
+
+    /// <summary>Normalises a projected value + unit-word to hours for comparison; null when no value.</summary>
+    private static double? InHours(double? value, string? unitWord)
+    {
+        if (value is not double v) return null;
+        return TimeUnits.TryParse(unitWord, out var u) ? TimeUnits.ToHours(v, u) : v;
+    }
 
     private static IReadOnlyList<string> ReadMulti(XElement e, string attrName, string childName)
     {
@@ -275,6 +313,10 @@ public sealed class TodoListDocument
         if (req.Priority is int pr) e.SetAttributeValue("PRIORITY", ClampScale(pr));
         if (req.Risk is int rk) e.SetAttributeValue("RISK", ClampScale(rk));
         if (req.PercentDone is int pd) e.SetAttributeValue("PERCENTDONE", Math.Clamp(pd, 0, 100));
+        if (req.TimeEstimate is double te)
+            SetTime(e, "TIMEESTIMATE", "TIMEESTUNITS", te, req.TimeEstimateUnit ?? TimeUnit.Hours);
+        if (req.TimeSpent is double ts)
+            SetTime(e, "TIMESPENT", "TIMESPENTUNITS", ts, req.TimeSpentUnit ?? TimeUnit.Hours);
         if (req.Comments is not null) SetComments(e, req.Comments);
         if (req.DueDate is DateTime due) SetDueDate(e, due);
         if (req.StartDate is DateTime start) SetStartDate(e, start);
@@ -318,6 +360,9 @@ public sealed class TodoListDocument
         else if (req.Risk is int r) e.SetAttributeValue("RISK", ClampScale(r));
 
         if (req.PercentDone is int pd) e.SetAttributeValue("PERCENTDONE", Math.Clamp(pd, 0, 100));
+
+        UpdateTime(e, "TIMEESTIMATE", "TIMEESTUNITS", req.ClearTimeEstimate, req.TimeEstimate, req.TimeEstimateUnit);
+        UpdateTime(e, "TIMESPENT", "TIMESPENTUNITS", req.ClearTimeSpent, req.TimeSpent, req.TimeSpentUnit);
 
         if (req.ClearDueDate)
         {
@@ -510,6 +555,35 @@ public sealed class TodoListDocument
 
     private static void SetVersion(XElement e, string version) =>
         e.SetAttributeValue("VERSION", TrimToNull(version));
+
+    /// <summary>Writes a time amount (clamped to ≥ 0) and its unit code.</summary>
+    private static void SetTime(XElement e, string valueName, string unitName, double value, TimeUnit unit)
+    {
+        e.SetAttributeValue(valueName, TimeUnits.Format(Math.Max(0, value)));
+        e.SetAttributeValue(unitName, TimeUnits.ToFileCode(unit).ToString());
+    }
+
+    /// <summary>
+    /// Applies an update to a time pair: clear removes both; a value sets the amount (keeping the
+    /// existing unit unless one is given); a unit alone re-labels an existing amount.
+    /// </summary>
+    private static void UpdateTime(
+        XElement e, string valueName, string unitName, bool clear, double? value, TimeUnit? unit)
+    {
+        if (clear)
+        {
+            e.SetAttributeValue(valueName, null);
+            e.SetAttributeValue(unitName, null);
+        }
+        else if (value is double v)
+        {
+            SetTime(e, valueName, unitName, v, unit ?? ReadTimeUnit(e, unitName));
+        }
+        else if (unit is TimeUnit u && e.Attribute(valueName) is not null)
+        {
+            e.SetAttributeValue(unitName, TimeUnits.ToFileCode(u).ToString());
+        }
+    }
 
     private static void SetAllocatedBy(XElement e, string allocatedBy) =>
         e.SetAttributeValue("ALLOCATEDBY", TrimToNull(allocatedBy));

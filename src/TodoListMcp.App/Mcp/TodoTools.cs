@@ -37,7 +37,7 @@ public sealed class TodoTools
         ?? throw new InvalidOperationException($"Task {id} was not found.");
 
     [McpServerTool(Name = "search_tasks")]
-    [Description("Search tasks by text, category, assignee, allocated-by, completion, flag, status, version, external ID, or minimum priority/risk. Returns a flat list of matches.")]
+    [Description("Search tasks by text, category, assignee, allocated-by, completion, flag, status, version, external ID, minimum priority/risk, or time estimate/spent range. Returns a flat list of matches.")]
     public IReadOnlyList<TodoTask> SearchTasks(
         [Description("Case-insensitive text matched against the title and notes.")] string? text = null,
         [Description("Only tasks in this category.")] string? category = null,
@@ -50,6 +50,10 @@ public sealed class TodoTools
         [Description("Exact (case-insensitive) person who allocated the task.")] string? allocatedBy = null,
         [Description("Minimum priority on the 0-10 scale.")] int? minPriority = null,
         [Description("Minimum risk on the 0-10 scale.")] int? minRisk = null,
+        [Description("Minimum time estimate in hours (days/weeks/etc. normalised at 8h/day).")] double? minEstimateHours = null,
+        [Description("Maximum time estimate in hours (normalised at 8h/day).")] double? maxEstimateHours = null,
+        [Description("Minimum time spent in hours (normalised at 8h/day).")] double? minSpentHours = null,
+        [Description("Maximum time spent in hours (normalised at 8h/day).")] double? maxSpentHours = null,
         [Description("Alias of the configured list. Omit to use the default list.")] string? list = null) =>
         _manager.Read(list, d => d.Search(new TaskQuery
         {
@@ -64,6 +68,10 @@ public sealed class TodoTools
             AllocatedBy = allocatedBy,
             MinPriority = minPriority,
             MinRisk = minRisk,
+            MinEstimateHours = minEstimateHours,
+            MaxEstimateHours = maxEstimateHours,
+            MinSpentHours = minSpentHours,
+            MaxSpentHours = maxSpentHours,
         }));
 
     [McpServerTool(Name = "add_task")]
@@ -76,6 +84,10 @@ public sealed class TodoTools
         [Description("Priority on the 0-10 scale.")] int? priority = null,
         [Description("Risk on the 0-10 scale.")] int? risk = null,
         [Description("Initial completion percentage, 0-100. Omit to start at 0.")] int? percentDone = null,
+        [Description("Time estimate value, in the chosen unit.")] double? timeEstimate = null,
+        [Description("Unit for the estimate: minutes/hours/days/weekdays/weeks/months/years (or I/H/D/K/W/M/Y). Default hours.")] string? timeEstimateUnit = null,
+        [Description("Time spent value, in the chosen unit.")] double? timeSpent = null,
+        [Description("Unit for time spent (same options as the estimate). Default hours.")] string? timeSpentUnit = null,
         [Description("Due date as yyyy-MM-dd or ISO 8601.")] string? dueDate = null,
         [Description("Start date as yyyy-MM-dd or ISO 8601.")] string? startDate = null,
         [Description("Free-text workflow status, e.g. \"In Progress\".")] string? status = null,
@@ -95,6 +107,10 @@ public sealed class TodoTools
             Priority = priority,
             Risk = risk,
             PercentDone = percentDone,
+            TimeEstimate = timeEstimate,
+            TimeEstimateUnit = ParseUnit(timeEstimateUnit, nameof(timeEstimateUnit)),
+            TimeSpent = timeSpent,
+            TimeSpentUnit = ParseUnit(timeSpentUnit, nameof(timeSpentUnit)),
             DueDate = ParseDate(dueDate),
             StartDate = ParseDate(startDate),
             Status = status,
@@ -117,6 +133,12 @@ public sealed class TodoTools
         [Description("New risk on the 0-10 scale.")] int? risk = null,
         [Description("Remove the risk entirely.")] bool clearRisk = false,
         [Description("Completion percentage, 0-100.")] int? percentDone = null,
+        [Description("New time estimate value, in timeEstimateUnit (or the existing unit if omitted).")] double? timeEstimate = null,
+        [Description("Unit for the estimate: minutes/hours/days/weekdays/weeks/months/years (or I/H/D/K/W/M/Y). Re-labels the estimate when supplied alone.")] string? timeEstimateUnit = null,
+        [Description("Remove the time estimate entirely.")] bool clearTimeEstimate = false,
+        [Description("New time spent value, in timeSpentUnit (or the existing unit if omitted).")] double? timeSpent = null,
+        [Description("Unit for time spent (same options as the estimate). Re-labels time spent when supplied alone.")] string? timeSpentUnit = null,
+        [Description("Remove the time spent entirely.")] bool clearTimeSpent = false,
         [Description("New due date as yyyy-MM-dd or ISO 8601.")] string? dueDate = null,
         [Description("Remove the due date entirely.")] bool clearDueDate = false,
         [Description("New start date as yyyy-MM-dd or ISO 8601.")] string? startDate = null,
@@ -138,6 +160,12 @@ public sealed class TodoTools
             Risk = risk,
             ClearRisk = clearRisk,
             PercentDone = percentDone,
+            TimeEstimate = timeEstimate,
+            TimeEstimateUnit = ParseUnit(timeEstimateUnit, nameof(timeEstimateUnit)),
+            ClearTimeEstimate = clearTimeEstimate,
+            TimeSpent = timeSpent,
+            TimeSpentUnit = ParseUnit(timeSpentUnit, nameof(timeSpentUnit)),
+            ClearTimeSpent = clearTimeSpent,
             DueDate = ParseDate(dueDate),
             ClearDueDate = clearDueDate,
             StartDate = ParseDate(startDate),
@@ -187,5 +215,13 @@ public sealed class TodoTools
         if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
             return dt;
         throw new ArgumentException($"Could not parse date '{value}'. Use yyyy-MM-dd or ISO 8601.");
+    }
+
+    private static TimeUnit? ParseUnit(string? value, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (TimeUnits.TryParse(value, out var unit)) return unit;
+        throw new ArgumentException(
+            $"Unknown time unit '{value}' for {paramName}. Use minutes/hours/days/weekdays/weeks/months/years (or I/H/D/K/W/M/Y).");
     }
 }

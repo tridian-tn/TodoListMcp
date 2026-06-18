@@ -35,6 +35,18 @@ public sealed class TodoTask
 
     public int PercentDone { get; init; }
 
+    /// <summary>Estimated effort value, in <see cref="TimeEstimateUnit"/>; null when unset (or zero).</summary>
+    public double? TimeEstimate { get; init; }
+
+    /// <summary>Unit for <see cref="TimeEstimate"/> (e.g. "hours", "days"); null when no estimate.</summary>
+    public string? TimeEstimateUnit { get; init; }
+
+    /// <summary>Effort spent so far, in <see cref="TimeSpentUnit"/>; null when unset (or zero).</summary>
+    public double? TimeSpent { get; init; }
+
+    /// <summary>Unit for <see cref="TimeSpent"/> (e.g. "hours", "days"); null when nothing spent.</summary>
+    public string? TimeSpentUnit { get; init; }
+
     /// <summary>True when the task carries a DONEDATE (explicitly completed).</summary>
     public bool IsDone { get; init; }
 
