@@ -63,6 +63,18 @@ public class SearchTests
     }
 
     [Fact]
+    public void Filter_by_version_and_allocated_by()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(3, new() { Version = "2.0", AllocatedBy = "Alice" });
+
+        Assert.Equal(new[] { 3 }, Ids(doc.Search(new() { Version = "2.0" })));
+        Assert.Equal(new[] { 3 }, Ids(doc.Search(new() { AllocatedBy = "alice" })));   // case-insensitive
+        Assert.Empty(doc.Search(new() { Version = "9.9" }));
+        Assert.Empty(doc.Search(new() { AllocatedBy = "nobody" }));
+    }
+
+    [Fact]
     public void Criteria_combine_with_and()
     {
         var doc = TestData.Sample();

@@ -37,7 +37,7 @@ public sealed class TodoTools
         ?? throw new InvalidOperationException($"Task {id} was not found.");
 
     [McpServerTool(Name = "search_tasks")]
-    [Description("Search tasks by text, category, assignee, completion, flag, status, external ID, or minimum priority/risk. Returns a flat list of matches.")]
+    [Description("Search tasks by text, category, assignee, allocated-by, completion, flag, status, version, external ID, or minimum priority/risk. Returns a flat list of matches.")]
     public IReadOnlyList<TodoTask> SearchTasks(
         [Description("Case-insensitive text matched against the title and notes.")] string? text = null,
         [Description("Only tasks in this category.")] string? category = null,
@@ -45,7 +45,9 @@ public sealed class TodoTools
         [Description("Filter by completion: true = done only, false = open only.")] bool? completed = null,
         [Description("Filter by flag: true = flagged only, false = un-flagged only.")] bool? flagged = null,
         [Description("Exact (case-insensitive) workflow status, e.g. \"In Progress\".")] string? status = null,
+        [Description("Exact (case-insensitive) version/release string.")] string? version = null,
         [Description("Exact (case-insensitive) external ID, e.g. an issue key.")] string? externalId = null,
+        [Description("Exact (case-insensitive) person who allocated the task.")] string? allocatedBy = null,
         [Description("Minimum priority on the 0-10 scale.")] int? minPriority = null,
         [Description("Minimum risk on the 0-10 scale.")] int? minRisk = null,
         [Description("Alias of the configured list. Omit to use the default list.")] string? list = null) =>
@@ -57,7 +59,9 @@ public sealed class TodoTools
             Completed = completed,
             Flagged = flagged,
             Status = status,
+            Version = version,
             ExternalId = externalId,
+            AllocatedBy = allocatedBy,
             MinPriority = minPriority,
             MinRisk = minRisk,
         }));
@@ -75,10 +79,12 @@ public sealed class TodoTools
         [Description("Due date as yyyy-MM-dd or ISO 8601.")] string? dueDate = null,
         [Description("Start date as yyyy-MM-dd or ISO 8601.")] string? startDate = null,
         [Description("Free-text workflow status, e.g. \"In Progress\".")] string? status = null,
+        [Description("Target version/release string.")] string? version = null,
         [Description("Set the flag (star) marker on the task.")] bool flag = false,
         [Description("Caller-defined external reference, e.g. an issue key.")] string? externalId = null,
         [Description("Categories to assign.")] string[]? categories = null,
         [Description("People to assign the task to.")] string[]? allocatedTo = null,
+        [Description("Who allocated the task (single value).")] string? allocatedBy = null,
         [Description("Alias of the configured list. Omit to use the default list.")] string? list = null) =>
         _manager.Write(list, d => d.AddTask(new AddTaskRequest
         {
@@ -92,10 +98,12 @@ public sealed class TodoTools
             DueDate = ParseDate(dueDate),
             StartDate = ParseDate(startDate),
             Status = status,
+            Version = version,
             Flag = flag,
             ExternalId = externalId,
             Categories = categories ?? Array.Empty<string>(),
             AllocatedTo = allocatedTo ?? Array.Empty<string>(),
+            AllocatedBy = allocatedBy,
         }));
 
     [McpServerTool(Name = "update_task")]
@@ -114,10 +122,12 @@ public sealed class TodoTools
         [Description("New start date as yyyy-MM-dd or ISO 8601.")] string? startDate = null,
         [Description("Remove the start date entirely.")] bool clearStartDate = false,
         [Description("New workflow status (empty string clears it).")] string? status = null,
+        [Description("New version/release string (empty string clears it).")] string? version = null,
         [Description("Set or remove the flag (star) marker.")] bool? flag = null,
         [Description("New external ID (empty string clears it).")] string? externalId = null,
         [Description("Replace the categories (empty array clears them).")] string[]? categories = null,
         [Description("Replace the assignees (empty array clears them).")] string[]? allocatedTo = null,
+        [Description("New allocated-by person (empty string clears it).")] string? allocatedBy = null,
         [Description("Alias of the configured list. Omit to use the default list.")] string? list = null) =>
         _manager.Write(list, d => d.UpdateTask(id, new UpdateTaskRequest
         {
@@ -133,10 +143,12 @@ public sealed class TodoTools
             StartDate = ParseDate(startDate),
             ClearStartDate = clearStartDate,
             Status = status,
+            Version = version,
             Flag = flag,
             ExternalId = externalId,
             Categories = categories,
             AllocatedTo = allocatedTo,
+            AllocatedBy = allocatedBy,
         }));
 
     [McpServerTool(Name = "complete_task")]

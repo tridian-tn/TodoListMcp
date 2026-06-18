@@ -28,6 +28,9 @@ public sealed class AddTaskRequest
     /// <summary>Free-text workflow status, e.g. "In Progress".</summary>
     public string? Status { get; init; }
 
+    /// <summary>Target version/release string.</summary>
+    public string? Version { get; init; }
+
     /// <summary>When true, sets the FLAG marker on the new task.</summary>
     public bool Flag { get; init; }
 
@@ -36,6 +39,9 @@ public sealed class AddTaskRequest
 
     public IReadOnlyList<string> Categories { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> AllocatedTo { get; init; } = Array.Empty<string>();
+
+    /// <summary>Who assigned the task (single value).</summary>
+    public string? AllocatedBy { get; init; }
 }
 
 /// <summary>
@@ -76,6 +82,9 @@ public sealed class UpdateTaskRequest
     /// <summary>Null = unchanged; a value (including empty string) replaces the status.</summary>
     public string? Status { get; init; }
 
+    /// <summary>Null = unchanged; a value (including empty string) replaces the version.</summary>
+    public string? Version { get; init; }
+
     /// <summary>Null = unchanged; true/false sets or removes the FLAG marker.</summary>
     public bool? Flag { get; init; }
 
@@ -87,6 +96,9 @@ public sealed class UpdateTaskRequest
 
     /// <summary>Null = unchanged; a list (including empty) replaces the assignees.</summary>
     public IReadOnlyList<string>? AllocatedTo { get; init; }
+
+    /// <summary>Null = unchanged; a value (including empty string) replaces who allocated the task.</summary>
+    public string? AllocatedBy { get; init; }
 }
 
 /// <summary>Filters for searching tasks. All criteria are combined with AND.</summary>
@@ -116,4 +128,10 @@ public sealed class TaskQuery
 
     /// <summary>Exact (case-insensitive) external ID to match.</summary>
     public string? ExternalId { get; init; }
+
+    /// <summary>Exact (case-insensitive) version/release string to match.</summary>
+    public string? Version { get; init; }
+
+    /// <summary>Exact (case-insensitive) allocated-by person to match.</summary>
+    public string? AllocatedBy { get; init; }
 }

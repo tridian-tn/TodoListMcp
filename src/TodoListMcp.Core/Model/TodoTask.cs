@@ -27,6 +27,9 @@ public sealed class TodoTask
     /// <summary>Free-text workflow status (the STATUS attribute), e.g. "In Progress"; null when unset.</summary>
     public string? Status { get; init; }
 
+    /// <summary>Target version/release string (the VERSION attribute); null when unset.</summary>
+    public string? Version { get; init; }
+
     /// <summary>True when the task carries the FLAG attribute (ToDoList's star/flag marker).</summary>
     public bool IsFlagged { get; init; }
 
@@ -50,6 +53,9 @@ public sealed class TodoTask
 
     public IReadOnlyList<string> Categories { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> AllocatedTo { get; init; } = Array.Empty<string>();
+
+    /// <summary>Who assigned the task (the single-value ALLOCATEDBY attribute); null when unset.</summary>
+    public string? AllocatedBy { get; init; }
 
     /// <summary>1-based dotted hierarchy path, e.g. "2.1.3" (the POSSTRING attribute).</summary>
     public string Position { get; init; } = "";
