@@ -22,6 +22,18 @@ public sealed class AddTaskRequest
     /// <summary>Initial completion percentage, 0–100 (clamped). Omit to start at 0.</summary>
     public int? PercentDone { get; init; }
 
+    /// <summary>Effort estimate value (in <see cref="TimeEstimateUnit"/>). Negative values clamp to 0.</summary>
+    public double? TimeEstimate { get; init; }
+
+    /// <summary>Unit for <see cref="TimeEstimate"/>; defaults to hours when an estimate is given.</summary>
+    public TimeUnit? TimeEstimateUnit { get; init; }
+
+    /// <summary>Effort already spent (in <see cref="TimeSpentUnit"/>). Negative values clamp to 0.</summary>
+    public double? TimeSpent { get; init; }
+
+    /// <summary>Unit for <see cref="TimeSpent"/>; defaults to hours when a value is given.</summary>
+    public TimeUnit? TimeSpentUnit { get; init; }
+
     public DateTime? DueDate { get; init; }
     public DateTime? StartDate { get; init; }
 
@@ -68,6 +80,30 @@ public sealed class UpdateTaskRequest
     public bool ClearRisk { get; init; }
 
     public int? PercentDone { get; init; }
+
+    /// <summary>Null = unchanged; a value sets the estimate (negative clamps to 0).</summary>
+    public double? TimeEstimate { get; init; }
+
+    /// <summary>
+    /// Null = keep the current unit (or default to hours for a new estimate); a value re-labels
+    /// the unit. Supplying only this (no <see cref="TimeEstimate"/>) re-labels an existing estimate.
+    /// </summary>
+    public TimeUnit? TimeEstimateUnit { get; init; }
+
+    /// <summary>When true, removes the time estimate (value and unit) regardless of the above.</summary>
+    public bool ClearTimeEstimate { get; init; }
+
+    /// <summary>Null = unchanged; a value sets time spent (negative clamps to 0).</summary>
+    public double? TimeSpent { get; init; }
+
+    /// <summary>
+    /// Null = keep the current unit (or default to hours for new time spent); a value re-labels
+    /// the unit. Supplying only this (no <see cref="TimeSpent"/>) re-labels existing time spent.
+    /// </summary>
+    public TimeUnit? TimeSpentUnit { get; init; }
+
+    /// <summary>When true, removes time spent (value and unit) regardless of the above.</summary>
+    public bool ClearTimeSpent { get; init; }
 
     public DateTime? DueDate { get; init; }
 
@@ -134,4 +170,16 @@ public sealed class TaskQuery
 
     /// <summary>Exact (case-insensitive) allocated-by person to match.</summary>
     public string? AllocatedBy { get; init; }
+
+    /// <summary>Minimum time estimate (inclusive), in hours; mixed units are normalised at 8h/day.</summary>
+    public double? MinEstimateHours { get; init; }
+
+    /// <summary>Maximum time estimate (inclusive), in hours; mixed units are normalised at 8h/day.</summary>
+    public double? MaxEstimateHours { get; init; }
+
+    /// <summary>Minimum time spent (inclusive), in hours; mixed units are normalised at 8h/day.</summary>
+    public double? MinSpentHours { get; init; }
+
+    /// <summary>Maximum time spent (inclusive), in hours; mixed units are normalised at 8h/day.</summary>
+    public double? MaxSpentHours { get; init; }
 }

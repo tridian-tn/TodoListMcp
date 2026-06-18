@@ -1,4 +1,5 @@
 using TodoListMcp.Core;
+using TodoListMcp.Core.Model;
 
 namespace TodoListMcp.Core.Tests;
 
@@ -155,6 +156,84 @@ public class UpdateTaskTests
         var xml = doc.ToXmlString();
         Assert.DoesNotContain(" VERSION=", xml);   // leading space avoids matching root FILEVERSION
         Assert.DoesNotContain("ALLOCATEDBY=", xml);
+    }
+
+    [Fact]
+    public void Update_sets_and_clears_time_estimate_and_spent()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(3, new()
+        {
+            TimeEstimate = 2, TimeEstimateUnit = TimeUnit.Days,
+            TimeSpent = 30, TimeSpentUnit = TimeUnit.Minutes,
+        });
+
+        var t = doc.GetTask(3)!;
+        Assert.Equal(2, t.TimeEstimate);
+        Assert.Equal("days", t.TimeEstimateUnit);
+        Assert.Equal(30, t.TimeSpent);
+        Assert.Equal("minutes", t.TimeSpentUnit);
+
+        doc.UpdateTask(3, new() { ClearTimeEstimate = true, ClearTimeSpent = true });
+        var cleared = doc.GetTask(3)!;
+        Assert.Null(cleared.TimeEstimate);
+        Assert.Null(cleared.TimeEstimateUnit);
+        Assert.Null(cleared.TimeSpent);
+        Assert.Null(cleared.TimeSpentUnit);
+
+        var xml = doc.ToXmlString();
+        Assert.DoesNotContain("TIMEESTIMATE=", xml);
+        Assert.DoesNotContain("TIMEESTUNITS=", xml);
+        Assert.DoesNotContain("TIMESPENT=", xml);
+        Assert.DoesNotContain("TIMESPENTUNITS=", xml);
+    }
+
+    [Fact]
+    public void Update_value_alone_keeps_existing_unit()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(3, new() { TimeEstimate = 2, TimeEstimateUnit = TimeUnit.Days });
+
+        doc.UpdateTask(3, new() { TimeEstimate = 5 }); // unit omitted
+        var t = doc.GetTask(3)!;
+        Assert.Equal(5, t.TimeEstimate);
+        Assert.Equal("days", t.TimeEstimateUnit);   // preserved, not reset to hours
+    }
+
+    [Fact]
+    public void Update_unit_alone_relabels_existing_estimate()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(3, new() { TimeEstimate = 4, TimeEstimateUnit = TimeUnit.Hours });
+
+        doc.UpdateTask(3, new() { TimeEstimateUnit = TimeUnit.Days }); // value omitted
+        var t = doc.GetTask(3)!;
+        Assert.Equal(4, t.TimeEstimate);
+        Assert.Equal("days", t.TimeEstimateUnit);
+    }
+
+    [Fact]
+    public void Update_unit_alone_on_task_without_estimate_is_noop()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(3, new() { TimeEstimateUnit = TimeUnit.Days }); // task 3 has no estimate
+
+        var t = doc.GetTask(3)!;
+        Assert.Null(t.TimeEstimate);
+        Assert.Null(t.TimeEstimateUnit);
+        Assert.DoesNotContain("TIMEESTUNITS=", doc.ToXmlString());
+    }
+
+    [Fact]
+    public void Update_unit_alone_on_zero_estimate_is_noop()
+    {
+        var doc = TestData.Sample();
+        // A clamped-to-zero estimate writes TIMEESTIMATE="0..." but reads as "unset".
+        var id = doc.AddTask(new() { Title = "Zero", TimeEstimate = -1 }).Id;
+
+        doc.UpdateTask(id, new() { TimeEstimateUnit = TimeUnit.Days }); // re-label a zero amount
+        Assert.Null(doc.GetTask(id)!.TimeEstimateUnit);
+        Assert.DoesNotContain("TIMEESTUNITS=\"D\"", doc.ToXmlString());
     }
 
     [Fact]

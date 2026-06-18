@@ -1,4 +1,5 @@
 using TodoListMcp.Core;
+using TodoListMcp.Core.Model;
 
 namespace TodoListMcp.Core.Tests;
 
@@ -105,6 +106,56 @@ public class AddTaskTests
         var doc = TestData.Sample();
         var created = doc.AddTask(new() { Title = "Risky", Risk = 99 });
         Assert.Equal(10, doc.GetTask(created.Id)!.Risk);
+    }
+
+    [Fact]
+    public void Add_persists_time_estimate_and_spent_with_units()
+    {
+        var doc = TestData.Sample();
+        var created = doc.AddTask(new()
+        {
+            Title = "Effort",
+            TimeEstimate = 3,
+            TimeEstimateUnit = TimeUnit.Days,
+            TimeSpent = 90,
+            TimeSpentUnit = TimeUnit.Minutes,
+        });
+
+        var read = doc.GetTask(created.Id)!;
+        Assert.Equal(3, read.TimeEstimate);
+        Assert.Equal("days", read.TimeEstimateUnit);
+        Assert.Equal(90, read.TimeSpent);
+        Assert.Equal("minutes", read.TimeSpentUnit);
+
+        var xml = doc.ToXmlString();
+        Assert.Contains("TIMEESTIMATE=\"3.00000000\"", xml);
+        Assert.Contains("TIMEESTUNITS=\"D\"", xml);
+        Assert.Contains("TIMESPENT=\"90.00000000\"", xml);
+        Assert.Contains("TIMESPENTUNITS=\"I\"", xml);  // minutes is I, not M
+    }
+
+    [Fact]
+    public void Add_time_unit_defaults_to_hours()
+    {
+        var doc = TestData.Sample();
+        var created = doc.AddTask(new() { Title = "Quick", TimeEstimate = 4 });
+
+        var read = doc.GetTask(created.Id)!;
+        Assert.Equal(4, read.TimeEstimate);
+        Assert.Equal("hours", read.TimeEstimateUnit);
+        Assert.Contains("TIMEESTUNITS=\"H\"", doc.ToXmlString());
+    }
+
+    [Fact]
+    public void Add_negative_time_clamps_to_zero_and_reads_as_unset()
+    {
+        var doc = TestData.Sample();
+        var created = doc.AddTask(new() { Title = "Bad", TimeEstimate = -5, TimeEstimateUnit = TimeUnit.Hours });
+
+        // Zero time is "no estimate" in ToDoList, so it reads back as null.
+        Assert.Null(doc.GetTask(created.Id)!.TimeEstimate);
+        Assert.Null(doc.GetTask(created.Id)!.TimeEstimateUnit);
+        Assert.Contains("TIMEESTIMATE=\"0.00000000\"", doc.ToXmlString());
     }
 
     [Fact]
