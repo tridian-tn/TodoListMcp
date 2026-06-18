@@ -137,6 +137,27 @@ public class UpdateTaskTests
     }
 
     [Fact]
+    public void Update_sets_trims_and_clears_version_and_allocated_by()
+    {
+        var doc = TestData.Sample();
+        doc.UpdateTask(3, new() { Version = "  1.5  ", AllocatedBy = "  Alice  " });
+
+        var t = doc.GetTask(3)!;
+        Assert.Equal("1.5", t.Version);          // stored trimmed
+        Assert.Equal("Alice", t.AllocatedBy);
+
+        // Empty string clears both, leaving no whitespace-y attribute behind.
+        doc.UpdateTask(3, new() { Version = "", AllocatedBy = "" });
+        var cleared = doc.GetTask(3)!;
+        Assert.Null(cleared.Version);
+        Assert.Null(cleared.AllocatedBy);
+
+        var xml = doc.ToXmlString();
+        Assert.DoesNotContain(" VERSION=", xml);   // leading space avoids matching root FILEVERSION
+        Assert.DoesNotContain("ALLOCATEDBY=", xml);
+    }
+
+    [Fact]
     public void Update_sets_and_clears_start_date()
     {
         var doc = TestData.Sample();

@@ -73,8 +73,10 @@ public class AddTaskTests
             PercentDone = 25,
             StartDate = new DateTime(2026, 1, 2),
             Status = "In Progress",
+            Version = "2.0",
             Flag = true,
             ExternalId = "JIRA-42",
+            AllocatedBy = "Alice",
         });
 
         var read = doc.GetTask(created.Id)!;
@@ -82,14 +84,18 @@ public class AddTaskTests
         Assert.Equal(25, read.PercentDone);
         Assert.Equal(new DateTime(2026, 1, 2), read.StartDate);
         Assert.Equal("In Progress", read.Status);
+        Assert.Equal("2.0", read.Version);
         Assert.True(read.IsFlagged);
         Assert.Equal("JIRA-42", read.ExternalId);
+        Assert.Equal("Alice", read.AllocatedBy);
 
         var xml = doc.ToXmlString();
         Assert.Contains("RISK=\"6\"", xml);
         Assert.Contains("STATUS=\"In Progress\"", xml);
+        Assert.Contains("VERSION=\"2.0\"", xml);
         Assert.Contains("FLAG=\"1\"", xml);
         Assert.Contains("EXTERNALID=\"JIRA-42\"", xml);
+        Assert.Contains("ALLOCATEDBY=\"Alice\"", xml);
         Assert.Contains("STARTDATE=\"", xml);
     }
 

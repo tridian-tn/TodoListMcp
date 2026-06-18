@@ -177,6 +177,12 @@ public sealed class TodoListDocument
         if (!string.IsNullOrWhiteSpace(q.ExternalId) &&
             !string.Equals(t.ExternalId, q.ExternalId.Trim(), StringComparison.OrdinalIgnoreCase))
             return false;
+        if (!string.IsNullOrWhiteSpace(q.Version) &&
+            !string.Equals(t.Version, q.Version.Trim(), StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (!string.IsNullOrWhiteSpace(q.AllocatedBy) &&
+            !string.Equals(t.AllocatedBy, q.AllocatedBy.Trim(), StringComparison.OrdinalIgnoreCase))
+            return false;
         return true;
     }
 
@@ -189,6 +195,7 @@ public sealed class TodoListDocument
         Priority = ReadScale(e, "PRIORITY"),
         Risk = ReadScale(e, "RISK"),
         Status = TrimToNull((string?)e.Attribute("STATUS")),
+        Version = TrimToNull((string?)e.Attribute("VERSION")),
         IsFlagged = (string?)e.Attribute("FLAG") == "1",
         PercentDone = (int?)e.Attribute("PERCENTDONE") ?? 0,
         IsDone = e.Attribute("DONEDATE") is { } d && !string.IsNullOrWhiteSpace(d.Value),
@@ -200,6 +207,7 @@ public sealed class TodoListDocument
         LastModified = ReadOaDate(e, "LASTMOD"),
         Categories = ReadMulti(e, "CATEGORY", "CATEGORY"),
         AllocatedTo = ReadMulti(e, "ALLOCATEDTO", "PERSON"),
+        AllocatedBy = TrimToNull((string?)e.Attribute("ALLOCATEDBY")),
         Position = (string?)e.Attribute("POSSTRING") ?? "",
         Subtasks = includeSubtasks
             ? e.Elements("TASK").Select(child => Project(child)).ToList()
@@ -271,10 +279,12 @@ public sealed class TodoListDocument
         if (req.DueDate is DateTime due) SetDueDate(e, due);
         if (req.StartDate is DateTime start) SetStartDate(e, start);
         if (req.Status is not null) SetStatus(e, req.Status);
+        if (req.Version is not null) SetVersion(e, req.Version);
         if (req.Flag) SetFlag(e, true);
         if (req.ExternalId is not null) SetExternalId(e, req.ExternalId);
         SetMulti(e, "CATEGORY", "CATEGORY", req.Categories);
         SetMulti(e, "ALLOCATEDTO", "PERSON", req.AllocatedTo);
+        if (req.AllocatedBy is not null) SetAllocatedBy(e, req.AllocatedBy);
         Touch(e, now);
 
         var siblings = parent.Elements("TASK").ToList();
@@ -297,6 +307,8 @@ public sealed class TodoListDocument
         if (req.Comments is not null) SetComments(e, req.Comments);
         if (req.ExternalId is not null) SetExternalId(e, req.ExternalId);
         if (req.Status is not null) SetStatus(e, req.Status);
+        if (req.Version is not null) SetVersion(e, req.Version);
+        if (req.AllocatedBy is not null) SetAllocatedBy(e, req.AllocatedBy);
         if (req.Flag is bool flag) SetFlag(e, flag);
 
         if (req.ClearPriority) e.SetAttributeValue("PRIORITY", null);
@@ -495,6 +507,12 @@ public sealed class TodoListDocument
 
     private static void SetExternalId(XElement e, string externalId) =>
         e.SetAttributeValue("EXTERNALID", TrimToNull(externalId));
+
+    private static void SetVersion(XElement e, string version) =>
+        e.SetAttributeValue("VERSION", TrimToNull(version));
+
+    private static void SetAllocatedBy(XElement e, string allocatedBy) =>
+        e.SetAttributeValue("ALLOCATEDBY", TrimToNull(allocatedBy));
 
     private static void SetFlag(XElement e, bool flag) =>
         e.SetAttributeValue("FLAG", flag ? "1" : null);

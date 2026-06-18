@@ -27,8 +27,9 @@ The engine mirrors how ToDoList actually stores data (verified against a real ex
 - **UTF-16 (LE, with BOM)** on save, declaring `encoding="utf-16"`.
 - Dates are **OLE-automation serials** (`DateTime.FromOADate` / `ToOADate`).
 - **`PRIORITY` and `RISK` are the native 0–10 scales** (`-2` = none) — no lossy bucketing.
-- **`STATUS`, `EXTERNALID`** (free text), the **`FLAG`** marker, and **`STARTDATE`** are read and written
-  alongside due date — single-value attributes mirroring how ToDoList stores them.
+- **`STATUS`, `VERSION`, `EXTERNALID`, `ALLOCATEDBY`** (free text), the **`FLAG`** marker, and
+  **`STARTDATE`** are read and written alongside due date — single-value attributes mirroring how
+  ToDoList stores them.
 - Notes are the **`<COMMENTS>` child element** (`COMMENTSTYPE="PLAIN_TEXT"`), not an attribute.
 - Assignees are **`<PERSON>` child elements** (or a single `ALLOCATEDTO` attribute); categories are
   **`<CATEGORY>`** likewise. Root-level pick-lists are *not* mistaken for per-task assignments.
@@ -231,8 +232,8 @@ this entirely. Restart Claude Desktop after editing the file.
 | `list_todo_files` | List the configured files and their aliases. |
 | `get_tasks` | Full task hierarchy for a list. |
 | `get_task` | One task (and its subtasks) by ID. |
-| `search_tasks` | Filter by text, category, assignee, completion, flag, status, external ID, or minimum priority/risk. |
-| `add_task` | Create a task (title, notes, priority, risk, % done, due/start date, status, flag, external ID, categories, assignees, parent/index). |
+| `search_tasks` | Filter by text, category, assignee, allocated-by, completion, flag, status, version, external ID, or minimum priority/risk. |
+| `add_task` | Create a task (title, notes, priority, risk, % done, due/start date, status, version, flag, external ID, categories, assignees/allocated-by, parent/index). |
 | `update_task` | Change fields; only supplied parameters are touched (with explicit clear flags). |
 | `complete_task` / `reopen_task` | Toggle completion (`DONEDATE` + progress). |
 | `delete_task` | Remove a task and its subtree. |
