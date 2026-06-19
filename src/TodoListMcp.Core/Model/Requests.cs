@@ -13,6 +13,9 @@ public sealed class AddTaskRequest
 
     public string? Comments { get; init; }
 
+    /// <summary>Format for <see cref="Comments"/> when authoring: plain (default), Markdown or HTML.</summary>
+    public CommentContentFormat CommentsFormat { get; init; }
+
     /// <summary>Priority on the 0–10 scale (values are clamped).</summary>
     public int? Priority { get; init; }
 
@@ -68,9 +71,16 @@ public sealed class UpdateTaskRequest
     public string? Comments { get; init; }
 
     /// <summary>
+    /// Format for <see cref="Comments"/> when it is supplied: plain (default), Markdown or HTML.
+    /// Ignored when <see cref="Comments"/> is null.
+    /// </summary>
+    public CommentContentFormat CommentsFormat { get; init; }
+
+    /// <summary>
     /// When false (default), setting <see cref="Comments"/> on a task whose existing notes are
     /// formatted (rich text/HTML/Markdown/spreadsheet) is refused, to avoid discarding ToDoList's
-    /// rich <c>CUSTOMCOMMENTS</c> payload. Set true to replace them with plain text anyway.
+    /// rich <c>CUSTOMCOMMENTS</c> payload. Set true to replace them anyway (in whatever
+    /// <see cref="CommentsFormat"/> is given).
     /// </summary>
     public bool ReplaceFormattedComments { get; init; }
 

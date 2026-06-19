@@ -83,6 +83,19 @@ public class MultiFormatCommentFileTests
         Assert.Equal(new[] { 27, 28, 29 }, after.Keys.OrderBy(k => k));   // the others are intact
     }
 
+    [Theory]
+    [InlineData(29)]   // HTML
+    [InlineData(30)]   // Markdown
+    public void Our_encoder_reproduces_the_real_todolist_payload_bytes(int id)
+    {
+        // Decode ToDoList's own CUSTOMCOMMENTS, recover the source, and confirm our encoder
+        // produces byte-identical bytes — i.e. authoring (#27) round-trips against real output.
+        var todolistBytes = Convert.FromBase64String(CustomCommentsByIdFromFile(TestData.MultiCommentFormatFilePath())[id]);
+        var source = System.Text.Encoding.Unicode.GetString(todolistBytes);
+        var ourBytes = Convert.FromBase64String(CommentFormat.EncodeCustomComments(source));
+        Assert.Equal(todolistBytes, ourBytes);
+    }
+
     [Fact]
     public void Editing_unrelated_fields_preserves_every_rich_payload_across_save_reload()
     {
