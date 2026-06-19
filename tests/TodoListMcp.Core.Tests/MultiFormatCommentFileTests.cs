@@ -1,5 +1,7 @@
+using System.Text;
 using System.Xml.Linq;
 using TodoListMcp.Core;
+using TodoListMcp.Core.Model;
 
 namespace TodoListMcp.Core.Tests;
 
@@ -81,6 +83,31 @@ public class MultiFormatCommentFileTests
         var after = CustomCommentsByIdFromXml(doc.ToXmlString());
         Assert.False(after.ContainsKey(30));                         // markdown payload removed
         Assert.Equal(new[] { 27, 28, 29 }, after.Keys.OrderBy(k => k));   // the others are intact
+    }
+
+    [Theory]
+    [InlineData(29)]   // HTML
+    [InlineData(30)]   // Markdown
+    public void Our_encoder_reproduces_the_real_todolist_payload_bytes(int id)
+    {
+        // Decode ToDoList's own CUSTOMCOMMENTS, recover the source, and confirm our encoder
+        // produces byte-identical bytes — i.e. authoring (#27) round-trips against real output.
+        var todolistBytes = Convert.FromBase64String(CustomCommentsByIdFromFile(TestData.MultiCommentFormatFilePath())[id]);
+        var source = System.Text.Encoding.Unicode.GetString(todolistBytes);
+        var ourBytes = Convert.FromBase64String(CommentFormat.EncodeCustomComments(source));
+        Assert.Equal(todolistBytes, ourBytes);
+    }
+
+    [Theory]
+    [InlineData(29, CommentContentFormat.Html)]
+    [InlineData(30, CommentContentFormat.Markdown)]
+    public void Our_plain_mirror_reproduces_real_todolist_output(int id, CommentContentFormat format)
+    {
+        // ToDoList derives <COMMENTS> via MSHTML innerText; assert our renderer matches its actual
+        // output for these real tasks (the source is recovered from the genuine <CUSTOMCOMMENTS>).
+        var source = Encoding.Unicode.GetString(
+            Convert.FromBase64String(CustomCommentsByIdFromFile(TestData.MultiCommentFormatFilePath())[id]));
+        Assert.Equal(Load().GetTask(id)!.Comments, CommentFormat.ToPlainMirror(format, source));
     }
 
     [Fact]

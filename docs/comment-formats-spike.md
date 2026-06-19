@@ -1,5 +1,7 @@
 # Spike: authoring HTML & Markdown comments
 
+> **Status: implemented.** The GO outcome below was acted on in [issue #27](https://github.com/tridian-tn/TodoListMcpWin/issues/27) — `add_task`/`update_task` now take `commentsFormat` (`plain`/`markdown`/`html`). This document is kept as the rationale.
+
 Part 3 of [issue #25](https://github.com/tridian-tn/TodoListMcpWin/issues/25). Findings + go/no-go for
 letting this server *write* formatted comments, not just preserve/flatten them. Verified against the
 [`abstractspoon/ToDoList_9.2`](https://github.com/abstractspoon/ToDoList_9.2) source.

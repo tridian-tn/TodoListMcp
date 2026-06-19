@@ -58,31 +58,35 @@ The engine mirrors how ToDoList actually stores data (verified against a real ex
 ToDoList stores a task's comments in up to three parts: a plain-text `<COMMENTS>` element (always
 present — it's what search and CSV export use), a `COMMENTSTYPE` format id, and, for non-plain
 formats, an opaque `<CUSTOMCOMMENTS>` payload that holds the actual rich content. The format is a
-pluggable "content control". **This server authors plain text only**; it reports each task's format
-as `CommentsFormat`.
+pluggable "content control". This server **authors plain text, Markdown, and HTML** (pass
+`commentsFormat` to `add_task`/`update_task`) and reports each task's format on read as
+`CommentsFormat`.
+
+When you author Markdown or HTML, the source is stored in `<CUSTOMCOMMENTS>` exactly as ToDoList
+encodes it (base64 of the UTF-16LE source bytes, no BOM), with a plain-text mirror in `<COMMENTS>`.
+The mirror matches how ToDoList derives it — the rendered text with markup removed (ToDoList uses the
+content control's `innerText`) — and ToDoList refreshes it itself on its next save. Rich Text and
+Spreadsheet stay read-only — their payloads are opaque (WordPad RTF / a ReoGrid workbook).
 
 > [!WARNING]
-> - **Reading a formatted task gives you the flattened plain-text mirror, _not_ the rich content.**
->   Check `CommentsFormat` — anything other than `plain` means the `Comments` text is a read-only
->   approximation of what you'd see in ToDoList.
-> - **Setting `comments` on a formatted task is refused by default.** Pass
->   `replaceFormattedComments: true` to overwrite the notes with plain text anyway — this **discards
->   ToDoList's rich `<CUSTOMCOMMENTS>` payload**. (Clearing the notes with an empty string is gated
->   the same way.)
+> - **Reading a formatted task gives you the flattened plain-text mirror, _not_ the rich source.**
+>   Check `CommentsFormat` — anything other than `plain` means the `Comments` text is the rendered
+>   text with markup removed (HTML tags / Markdown syntax stripped), not what you'd edit in ToDoList.
+> - **Overwriting a task's existing formatted notes is refused by default** — whatever new format
+>   you supply. Pass `replaceFormattedComments: true` to replace them anyway; this **discards
+>   ToDoList's existing rich `<CUSTOMCOMMENTS>` payload**. (Clearing the notes with an empty string is
+>   gated the same way.)
 > - Editing a formatted task's **other** fields never touches its comments — the rich payload is
 >   round-tripped untouched.
 
-| Format | `COMMENTSTYPE` | Read | Author (write) | On `update_task` notes |
+| Format | `COMMENTSTYPE` | Read | Author (`commentsFormat`) | On `update_task` notes |
 | --- | --- | --- | --- | --- |
-| Plain text | `PLAIN_TEXT` | ✅ full | ✅ | Replaced normally. |
-| Rich Text (RTF) | `849CF988-…` | ⚠️ flattened mirror | ❌ | Refused unless `replaceFormattedComments` (then flattened to plain). |
-| HTML | `FE0B6B6E-…` | ⚠️ flattened mirror | ❌ | As above. |
-| Markdown | `BAA4E079-…` | ⚠️ flattened mirror | ❌ | As above. |
+| Plain text | `PLAIN_TEXT` | ✅ full | ✅ `plain` (default) | Replaced normally. |
+| Markdown | `BAA4E079-…` | ⚠️ flattened mirror | ✅ `markdown` | Refused unless `replaceFormattedComments`. |
+| HTML | `FE0B6B6E-…` | ⚠️ flattened mirror | ✅ `html` | Refused unless `replaceFormattedComments`. |
+| Rich Text (RTF) | `849CF988-…` | ⚠️ flattened mirror | ❌ | Refused unless `replaceFormattedComments` (then replaced in the format you give). |
 | Spreadsheet | `BBDCAEDF-…` | ⚠️ flattened mirror | ❌ | As above. |
 | Other content control | (its GUID) | ⚠️ flattened mirror; `CommentsFormat` is the raw id | ❌ | As above. |
-
-Authoring HTML and Markdown notes (the text-native formats) is under investigation — see
-[issue #25](https://github.com/tridian-tn/TodoListMcpWin/issues/25).
 
 ## Requirements
 
@@ -279,7 +283,7 @@ this entirely. Restart Claude Desktop after editing the file.
 | `get_tasks` | Full task hierarchy for a list. |
 | `get_task` | One task (and its subtasks) by ID. |
 | `search_tasks` | Filter by text, category, assignee, allocated-by, completion, flag, status, version, external ID, minimum priority/risk, or time estimate/spent range (in hours). |
-| `add_task` | Create a task (title, notes, priority, risk, % done, time estimate/spent, due/start date, status, version, flag, external ID, categories, assignees/allocated-by, parent/index). |
+| `add_task` | Create a task (title, notes + `commentsFormat`, priority, risk, % done, time estimate/spent, due/start date, status, version, flag, external ID, categories, assignees/allocated-by, parent/index). |
 | `update_task` | Change fields; only supplied parameters are touched (with explicit clear flags). Editing the notes of a task with formatted comments needs `replaceFormattedComments` — see [Task comments / notes](#task-comments--notes). |
 | `complete_task` / `reopen_task` | Toggle completion (`DONEDATE` + progress). |
 | `delete_task` | Remove a task and its subtree. |

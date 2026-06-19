@@ -354,7 +354,7 @@ public sealed class TodoListDocument
             SetTime(e, "TIMEESTIMATE", "TIMEESTUNITS", te, req.TimeEstimateUnit ?? TimeUnit.Hours);
         if (req.TimeSpent is double ts)
             SetTime(e, "TIMESPENT", "TIMESPENTUNITS", ts, req.TimeSpentUnit ?? TimeUnit.Hours);
-        if (req.Comments is not null) SetComments(e, req.Comments);
+        if (req.Comments is not null) SetComments(e, req.Comments, req.CommentsFormat);
         if (req.DueDate is DateTime due) SetDueDate(e, due);
         if (req.StartDate is DateTime start) SetStartDate(e, start);
         if (req.Status is not null) SetStatus(e, req.Status);
@@ -392,7 +392,7 @@ public sealed class TodoListDocument
         var now = _clock.Now;
 
         if (req.Title is not null) e.SetAttributeValue("TITLE", req.Title);
-        if (req.Comments is not null) SetComments(e, req.Comments);
+        if (req.Comments is not null) SetComments(e, req.Comments, req.CommentsFormat);
         if (req.ExternalId is not null) SetExternalId(e, req.ExternalId);
         if (req.Status is not null) SetStatus(e, req.Status);
         if (req.Version is not null) SetVersion(e, req.Version);
@@ -574,9 +574,10 @@ public sealed class TodoListDocument
         }
     }
 
-    private void SetComments(XElement e, string text)
+    private void SetComments(XElement e, string text, CommentContentFormat format)
     {
-        // Drop legacy attribute form and any rich-text override so plain text wins.
+        // Rewrite every comment representation from scratch: drop the legacy attribute form and any
+        // existing rich payload, then re-emit per the requested format.
         e.SetAttributeValue("COMMENTS", null);
         e.Element("CUSTOMCOMMENTS")?.Remove();
 
@@ -592,8 +593,12 @@ public sealed class TodoListDocument
             child = new XElement("COMMENTS");
             e.Add(child);
         }
-        child.Value = text;
-        e.SetAttributeValue("COMMENTSTYPE", "PLAIN_TEXT");
+        // <COMMENTS> always holds the plain-text mirror; non-plain formats also store the rich
+        // source in <CUSTOMCOMMENTS> (base64 of UTF-16LE), exactly as ToDoList's content controls do.
+        child.Value = CommentFormat.ToPlainMirror(format, text);
+        e.SetAttributeValue("COMMENTSTYPE", CommentFormat.ToCommentsType(format));
+        if (format != CommentContentFormat.Plain)
+            child.AddAfterSelf(new XElement("CUSTOMCOMMENTS", CommentFormat.EncodeCustomComments(text)));
     }
 
     private static void SetMulti(XElement e, string attrName, string childName, IReadOnlyList<string> values)

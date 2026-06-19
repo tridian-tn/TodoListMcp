@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using ModelContextProtocol.Server;
+using TodoListMcp.Core;
 using TodoListMcp.Core.Model;
 
 namespace TodoListMcp.App.Mcp;
@@ -80,7 +81,8 @@ public sealed class TodoTools
         [Description("The task title.")] string title,
         [Description("Parent task ID to nest under. Omit for a top-level task.")] int? parentId = null,
         [Description("Zero-based position among siblings. Omit to append at the end.")] int? index = null,
-        [Description("Plain-text notes for the task.")] string? comments = null,
+        [Description("Notes for the task.")] string? comments = null,
+        [Description("Format for the notes: plain (default), markdown, or html. Rich text and spreadsheet can't be authored here.")] string? commentsFormat = null,
         [Description("Priority on the 0-10 scale.")] int? priority = null,
         [Description("Risk on the 0-10 scale.")] int? risk = null,
         [Description("Initial completion percentage, 0-100. Omit to start at 0.")] int? percentDone = null,
@@ -104,6 +106,7 @@ public sealed class TodoTools
             ParentId = parentId,
             Index = index,
             Comments = comments,
+            CommentsFormat = comments is null ? CommentContentFormat.Plain : ParseCommentsFormat(commentsFormat),
             Priority = priority,
             Risk = risk,
             PercentDone = percentDone,
@@ -128,7 +131,8 @@ public sealed class TodoTools
         [Description("The task ID.")] int id,
         [Description("New title.")] string? title = null,
         [Description("New notes (empty string clears the notes).")] string? comments = null,
-        [Description("Allow replacing formatted (rich text/HTML/Markdown/spreadsheet) notes with plain text. Without this, editing the notes of such a task is refused so ToDoList's rich content isn't discarded.")] bool replaceFormattedComments = false,
+        [Description("Format for new notes: plain (default), markdown, or html. Only applies when comments is supplied.")] string? commentsFormat = null,
+        [Description("Allow replacing existing formatted (rich text/HTML/Markdown/spreadsheet) notes. Without this, editing the notes of such a task is refused so ToDoList's rich content isn't discarded.")] bool replaceFormattedComments = false,
         [Description("New priority on the 0-10 scale.")] int? priority = null,
         [Description("Remove the priority entirely.")] bool clearPriority = false,
         [Description("New risk on the 0-10 scale.")] int? risk = null,
@@ -156,6 +160,7 @@ public sealed class TodoTools
         {
             Title = title,
             Comments = comments,
+            CommentsFormat = comments is null ? CommentContentFormat.Plain : ParseCommentsFormat(commentsFormat),
             ReplaceFormattedComments = replaceFormattedComments,
             Priority = priority,
             ClearPriority = clearPriority,
@@ -225,5 +230,14 @@ public sealed class TodoTools
         if (TimeUnits.TryParse(value, out var unit)) return unit;
         throw new ArgumentException(
             $"Unknown time unit '{value}' for {paramName}. Use minutes/hours/days/weekdays/weeks/months/years (or I/H/D/K/W/M/Y).");
+    }
+
+    private static CommentContentFormat ParseCommentsFormat(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return CommentContentFormat.Plain;
+        if (CommentFormat.TryParseWritable(value, out var format)) return format;
+        throw new ArgumentException(
+            $"Unknown comment format '{value}'. Use plain, markdown, or html "
+            + "(rich text and spreadsheet can't be authored here — edit them in ToDoList).");
     }
 }

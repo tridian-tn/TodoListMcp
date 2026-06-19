@@ -1,9 +1,14 @@
+using System.Text;
+using System.Text.RegularExpressions;
+using TodoListMcp.Core.Model;
+
 namespace TodoListMcp.Core;
 
 /// <summary>
-/// Maps ToDoList's <c>COMMENTSTYPE</c> identifiers to friendly format names. The built-in
-/// <c>PLAIN_TEXT</c> aside, each format is a "content control" identified by a GUID. The GUIDs
-/// are verified against the abstractspoon/ToDoList_9.2 source (Core/RTFContentCtrl and
+/// Maps ToDoList's <c>COMMENTSTYPE</c> identifiers to friendly format names, and provides the
+/// encoding used to author the text-native formats. The built-in <c>PLAIN_TEXT</c> aside, each
+/// format is a "content control" identified by a GUID. The GUIDs and the <c>CUSTOMCOMMENTS</c>
+/// encoding are verified against the abstractspoon/ToDoList_9.2 source (Core/RTFContentCtrl and
 /// Plugins/ContentControl).
 /// </summary>
 public static class CommentFormat
@@ -50,4 +55,94 @@ public static class CommentFormat
         SpreadsheetId => Spreadsheet,
         _ => raw.Trim(),
     };
+
+    /// <summary>The <c>COMMENTSTYPE</c> value ToDoList stores for an authorable format.</summary>
+    public static string ToCommentsType(CommentContentFormat format) => format switch
+    {
+        CommentContentFormat.Markdown => MarkdownId,
+        CommentContentFormat.Html => HtmlId,
+        _ => PlainTextId,
+    };
+
+    /// <summary>
+    /// Parses an authorable format name, accepting plain/markdown(md)/html. Returns false for
+    /// anything else — including rich text and spreadsheet, which can be read but not authored.
+    /// </summary>
+    public static bool TryParseWritable(string? text, out CommentContentFormat format)
+    {
+        format = CommentContentFormat.Plain;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        switch (text.Trim().ToLowerInvariant())
+        {
+            case "plain": case "plaintext": case "plain_text": case "text": format = CommentContentFormat.Plain; return true;
+            case "markdown": case "md": format = CommentContentFormat.Markdown; return true;
+            case "html": case "htm": format = CommentContentFormat.Html; return true;
+            default: return false;
+        }
+    }
+
+    /// <summary>
+    /// Encodes comment source the way ToDoList stores it in &lt;CUSTOMCOMMENTS&gt;: base64 of the
+    /// UTF-16LE bytes (no BOM), matching the content controls' <c>GetContent()</c>.
+    /// </summary>
+    public static string EncodeCustomComments(string source) =>
+        Convert.ToBase64String(Encoding.Unicode.GetBytes(source));
+
+    /// <summary>
+    /// The plain-text mirror for the &lt;COMMENTS&gt; element. ToDoList derives this with MSHTML's
+    /// <c>innerText</c> — directly for HTML, and for Markdown after rendering the source to HTML
+    /// (Markdig). We can't run MSHTML headless, so this reproduces its observed output: rendered text
+    /// with markup removed and blank lines collapsed. It is validated against a real ToDoList export
+    /// (see the multi-format fixture tests) and, in any case, ToDoList regenerates it on its next save.
+    /// </summary>
+    public static string ToPlainMirror(CommentContentFormat format, string source) => format switch
+    {
+        CommentContentFormat.Html => StripHtml(source),
+        CommentContentFormat.Markdown => StripMarkdown(source),
+        _ => source,
+    };
+
+    private static string StripHtml(string html)
+    {
+        // Turn common block boundaries into newlines, then drop the remaining tags and decode entities.
+        var withBreaks = Regex.Replace(html, @"(?i)<\s*(br|/p|/div|/li|/h[1-6]|/tr)\s*/?\s*>", "\n");
+        var noTags = Regex.Replace(withBreaks, "<[^>]+>", "");
+        return NormalizeLines(System.Net.WebUtility.HtmlDecode(noTags));
+    }
+
+    private static string StripMarkdown(string markdown)
+    {
+        var s = markdown;
+        s = Regex.Replace(s, @"(?m)^\s*```.*$", "");               // code-fence lines
+        s = Regex.Replace(s, @"!\[([^\]]*)\]\([^)]*\)", "$1");     // images -> alt text
+        s = Regex.Replace(s, @"\[([^\]]*)\]\([^)]*\)", "$1");      // links -> link text
+        s = Regex.Replace(s, @"`([^`]*)`", "$1");                  // inline code
+        s = Regex.Replace(s, @"\*\*(.+?)\*\*", "$1");              // **strong**
+        s = Regex.Replace(s, @"(?<![A-Za-z0-9])__(.+?)__(?![A-Za-z0-9])", "$1");   // __strong__
+        s = Regex.Replace(s, @"~~(.+?)~~", "$1");                  // ~~strikethrough~~
+        s = Regex.Replace(s, @"\*(.+?)\*", "$1");                  // *emphasis*
+        s = Regex.Replace(s, @"(?<![A-Za-z0-9])_(.+?)_(?![A-Za-z0-9])", "$1");     // _emphasis_
+
+        var lines = s.Split('\n').Select(line =>
+        {
+            var t = line.Trim();
+            if (Regex.IsMatch(t, @"^([-*_])\1{2,}$")) return "";   // horizontal rule
+            t = Regex.Replace(t, @"^#{1,6}\s+", "");               // ATX heading marker
+            t = Regex.Replace(t, @"^>\s?", "");                    // blockquote marker
+            t = Regex.Replace(t, @"^([-*+]|\d+\.)\s+", "");        // list-item marker
+            return t;
+        });
+        return NormalizeLines(string.Join("\n", lines));
+    }
+
+    /// <summary>Collapses inline whitespace, drops blank lines, and trims — mirroring how a browser's
+    /// <c>innerText</c> renders block content as single-newline-separated lines.</summary>
+    private static string NormalizeLines(string text)
+    {
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n')
+            .Split('\n')
+            .Select(l => Regex.Replace(l, @"[ \t]+", " ").Trim())
+            .Where(l => l.Length > 0);
+        return string.Join("\n", lines).Trim();
+    }
 }
