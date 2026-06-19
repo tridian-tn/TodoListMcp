@@ -41,6 +41,9 @@ internal static class TrayIconFactory
     /// <summary>Writes a multi-resolution Windows .ico to <paramref name="path"/>.</summary>
     public static void WriteIco(string path) => File.WriteAllBytes(path, BuildIco(IconSizes));
 
+    /// <summary>Renders the artwork to a fresh <see cref="Bitmap"/> of the given square size (the caller owns it).</summary>
+    public static Bitmap CreateBitmap(int size) => RenderBitmap(size);
+
     private static byte[] BuildIco(int[] sizes)
     {
         var ordered = sizes.Distinct().OrderBy(s => s).ToArray();

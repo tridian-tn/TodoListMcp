@@ -65,6 +65,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(_startupItem);
 
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("About TodoList MCP…", null, (_, _) => ShowAbout());
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
 
         // Refresh dynamic state each time the menu opens.
@@ -171,6 +172,12 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             // Clipboard can transiently fail; not worth surfacing.
         }
+    }
+
+    private static void ShowAbout()
+    {
+        using var about = new AboutForm();
+        about.ShowDialog();
     }
 
     private void ExitApp()
