@@ -89,11 +89,13 @@ public static class CommentFormat
         Convert.ToBase64String(Encoding.Unicode.GetBytes(source));
 
     /// <summary>
-    /// Decodes a &lt;CUSTOMCOMMENTS&gt; payload back to its source — the exact inverse of
-    /// <see cref="EncodeCustomComments"/> (base64 of UTF-16LE bytes). For the text-native formats
-    /// (Markdown/HTML) this recovers the authored source byte-for-byte. Returns null on a
-    /// missing or malformed payload rather than surfacing garbage, so callers can treat "no
-    /// recoverable source" uniformly.
+    /// Decodes a &lt;CUSTOMCOMMENTS&gt; payload back to its source — the inverse of
+    /// <see cref="EncodeCustomComments"/> (base64 of UTF-16LE bytes) for any non-empty source: for
+    /// the text-native formats (Markdown/HTML) it recovers the authored source byte-for-byte.
+    /// A missing, empty/whitespace, or malformed payload returns null rather than surfacing garbage,
+    /// so callers treat "no recoverable source" uniformly. (Note this is therefore not a total
+    /// inverse: an empty source encodes to "" but decodes back to null — but the write path never
+    /// emits an empty payload, so that case doesn't arise on real documents.)
     /// </summary>
     public static string? DecodeCustomComments(string? payload)
     {
