@@ -63,8 +63,8 @@ pluggable "content control". This server **authors plain text, Markdown, and HTM
 `CommentsFormat`.
 
 When you author Markdown or HTML, the source is stored in `<CUSTOMCOMMENTS>` exactly as ToDoList
-encodes it (base64 of the UTF-16 source), with a plain-text mirror in `<COMMENTS>` (ToDoList
-refreshes that mirror itself on its next save). Rich Text and Spreadsheet stay read-only — their
+encodes it (base64 of the UTF-16LE source bytes, no BOM), with a plain-text mirror in `<COMMENTS>`
+(ToDoList refreshes that mirror itself on its next save). Rich Text and Spreadsheet stay read-only — their
 payloads are opaque (WordPad RTF / a ReoGrid workbook).
 
 > [!WARNING]
