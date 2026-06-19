@@ -32,6 +32,8 @@ public sealed class TodoListManager
             throw new InvalidOperationException(
                 "No ToDoList files are configured. Open the tray menu → 'Open configuration' and add at least one file.");
 
+        ValidateConfig(files);
+
         if (string.IsNullOrWhiteSpace(alias))
         {
             var def = files.FirstOrDefault(f => f.Default) ?? (files.Count == 1 ? files[0] : null);
@@ -53,8 +55,15 @@ public sealed class TodoListManager
         {
             var doc = LoadOrThrow(entry);
             var result = mutate(doc);
-            doc.Save();
-            _log.LogInformation("Saved changes to list '{Alias}' ({Path}).", entry.Alias, entry.Path);
+            if (doc.IsDirty)
+            {
+                doc.Save();
+                _log.LogInformation("Saved changes to list '{Alias}' ({Path}).", entry.Alias, entry.Path);
+            }
+            else
+            {
+                _log.LogInformation("No changes to save for list '{Alias}' ({Path}).", entry.Alias, entry.Path);
+            }
             return result;
         });
 
@@ -87,4 +96,35 @@ public sealed class TodoListManager
 
     private static string Aliases(IEnumerable<TodoFileEntry> files) =>
         string.Join(", ", files.Select(f => $"'{f.Alias}'"));
+
+    /// <summary>
+    /// Guards against ambiguous hand-edited config. A duplicate alias or a second default would
+    /// otherwise silently send reads and writes to whichever entry happened to be listed first,
+    /// so we fail loudly instead of acting on the wrong .tdl.
+    /// </summary>
+    private static void ValidateConfig(IReadOnlyList<TodoFileEntry> files)
+    {
+        if (files.Any(f => string.IsNullOrWhiteSpace(f.Alias)))
+            throw new InvalidOperationException(
+                "Configuration error: every configured list needs a non-empty 'Alias'.");
+
+        var blankPath = files.FirstOrDefault(f => string.IsNullOrWhiteSpace(f.Path));
+        if (blankPath is not null)
+            throw new InvalidOperationException(
+                $"Configuration error: list '{blankPath.Alias}' has no 'Path'.");
+
+        var duplicateAliases = files
+            .GroupBy(f => f.Alias.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => $"'{g.Key}'")
+            .ToList();
+        if (duplicateAliases.Count > 0)
+            throw new InvalidOperationException(
+                $"Configuration error: duplicate list alias(es) {string.Join(", ", duplicateAliases)}. Each list needs a unique alias.");
+
+        var defaults = files.Where(f => f.Default).ToList();
+        if (defaults.Count > 1)
+            throw new InvalidOperationException(
+                $"Configuration error: {defaults.Count} lists are marked Default ({Aliases(defaults)}); mark only one as the default.");
+    }
 }

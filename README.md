@@ -99,7 +99,8 @@ startup, so changing those needs an app restart.
 ```
 
 - **Alias**: the short name tool callers pass as `list`. Omit `list` in a call to use the `Default`
-  file (or the only file, if just one is configured).
+  file (or the only file, if just one is configured). Each alias must be unique and at most one file
+  may be `Default`; the server refuses to act on ambiguous config rather than guess which file you meant.
 - **Port**: loopback TCP port; the server binds `127.0.0.1`/`::1` only.
 - **UseHttps**: serve over HTTPS. Off by default: the server is loopback-only, so plain HTTP never
   leaves your machine and skips the certificate step. Set `true` to enable TLS; see

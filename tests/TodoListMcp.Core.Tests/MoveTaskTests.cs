@@ -48,4 +48,27 @@ public class MoveTaskTests
         var doc = TestData.Sample();
         Assert.Throws<TaskNotFoundException>(() => doc.MoveTask(999, newParentId: null));
     }
+
+    [Fact]
+    public void Move_stamps_the_moved_task()
+    {
+        var doc = TestData.Sample();
+        doc.ModifiedBy = "Mover";
+        // Task 3 has no LASTMOD in the sample, so a stamp can only come from the move.
+        var moved = doc.MoveTask(3, newParentId: null);
+
+        Assert.NotNull(moved.LastModified);
+        Assert.Contains("LASTMODBY=\"Mover\"", doc.ToXmlString());
+    }
+
+    [Fact]
+    public void Move_does_not_stamp_renumbered_siblings()
+    {
+        var doc = TestData.Sample();
+        // Moving task 2 out renumbers its former sibling task 3 from "1.2" to "1.1"...
+        doc.MoveTask(2, newParentId: null);
+        Assert.Equal("1.1", doc.GetTask(3)!.Position);
+        // ...but a derived position change is not a stamp-worthy edit, so it stays unstamped.
+        Assert.Null(doc.GetTask(3)!.LastModified);
+    }
 }
