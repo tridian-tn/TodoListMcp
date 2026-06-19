@@ -89,6 +89,26 @@ public static class CommentFormat
         Convert.ToBase64String(Encoding.Unicode.GetBytes(source));
 
     /// <summary>
+    /// Decodes a &lt;CUSTOMCOMMENTS&gt; payload back to its source — the exact inverse of
+    /// <see cref="EncodeCustomComments"/> (base64 of UTF-16LE bytes). For the text-native formats
+    /// (Markdown/HTML) this recovers the authored source byte-for-byte. Returns null on a
+    /// missing or malformed payload rather than surfacing garbage, so callers can treat "no
+    /// recoverable source" uniformly.
+    /// </summary>
+    public static string? DecodeCustomComments(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload)) return null;
+        try
+        {
+            return Encoding.Unicode.GetString(Convert.FromBase64String(payload.Trim()));
+        }
+        catch (FormatException)
+        {
+            return null;   // not valid base64 — preserve-only, no source to recover
+        }
+    }
+
+    /// <summary>
     /// The plain-text mirror for the &lt;COMMENTS&gt; element. ToDoList derives this with MSHTML's
     /// <c>innerText</c> — directly for HTML, and for Markdown after rendering the source to HTML
     /// (Markdig). We can't run MSHTML headless, so this reproduces its observed output: rendered text

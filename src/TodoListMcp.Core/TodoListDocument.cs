@@ -206,6 +206,7 @@ public sealed class TodoListDocument
         Title = (string?)e.Attribute("TITLE") ?? "",
         ExternalId = TrimToNull((string?)e.Attribute("EXTERNALID")),
         Comments = ReadComments(e),
+        CommentsSource = ReadCommentsSource(e),
         CommentsFormat = ReadCommentsFormat(e),
         Priority = ReadScale(e, "PRIORITY"),
         Risk = ReadScale(e, "RISK"),
@@ -256,6 +257,19 @@ public sealed class TodoListDocument
         if (e.Element("CUSTOMCOMMENTS") is not null) return CommentFormat.Unknown;
         var hasComments = e.Element("COMMENTS") is not null || e.Attribute("COMMENTS") is not null;
         return hasComments ? CommentFormat.PlainText : null;
+    }
+
+    /// <summary>
+    /// Decodes the editable comment source from &lt;CUSTOMCOMMENTS&gt;, but only for the formats this
+    /// server can re-author (markdown/html) — making a read → edit → write round-trip lossless. Null
+    /// for plain (use the &lt;COMMENTS&gt; mirror) and for rich/spreadsheet/unknown formats, whose
+    /// payloads are opaque and can't be written back, so the mirror stays their only surfaced text.
+    /// </summary>
+    private static string? ReadCommentsSource(XElement e)
+    {
+        var format = ReadCommentsFormat(e);
+        if (format is not (CommentFormat.Markdown or CommentFormat.Html)) return null;
+        return CommentFormat.DecodeCustomComments(e.Element("CUSTOMCOMMENTS")?.Value);
     }
 
     /// <summary>
