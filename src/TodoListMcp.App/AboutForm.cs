@@ -13,12 +13,18 @@ internal sealed class AboutForm : Form
 {
     private const string ProjectUrl = "https://github.com/tridian-tn/TodoListMcpWin";
 
+    // Owned GDI resources: a Form does not dispose an assigned Icon, and a PictureBox does not
+    // dispose its Image, so we keep references and dispose them ourselves (see Dispose).
+    private readonly Icon _icon;
+    private readonly Bitmap _logoImage;
+
     public AboutForm()
     {
         SuspendLayout();
 
         Text = "About TodoList MCP";
-        Icon = TrayIconFactory.Create();
+        _icon = TrayIconFactory.Create();
+        Icon = _icon;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterScreen;
         MaximizeBox = false;
@@ -29,9 +35,10 @@ internal sealed class AboutForm : Form
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         Padding = new Padding(16);
 
+        _logoImage = TrayIconFactory.CreateBitmap(48);
         var logo = new PictureBox
         {
-            Image = TrayIconFactory.CreateBitmap(48),
+            Image = _logoImage,
             Size = new Size(48, 48),
             SizeMode = PictureBoxSizeMode.Zoom,
             Margin = new Padding(0, 0, 16, 0),
@@ -134,5 +141,15 @@ internal sealed class AboutForm : Form
         {
             // Opening the browser is best-effort, like the tray's other shell launches.
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _icon.Dispose();
+            _logoImage.Dispose();
+        }
+        base.Dispose(disposing);
     }
 }

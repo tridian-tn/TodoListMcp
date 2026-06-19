@@ -12,7 +12,8 @@
                                            version reads e.g. 0.0.3-alpha.0.5+74cab42…
 
     So a tagged release commit carries a clean version, and every other build is identified by its
-    commit hash — surfaced in Help ▸ About (see AboutForm) and in the file's Product version.
+    commit hash — surfaced in the tray menu's "About TodoList MCP…" item (see AboutForm) and in the
+    file's Product version.
 
     Our tags carry a leading "v" (v0.0.1, v0.0.2, …), stripped via MinVerTagPrefix. Versioning runs
     in every configuration (Debug included) so `dotnet run` and the About box always report the real

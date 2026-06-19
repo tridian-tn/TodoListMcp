@@ -42,7 +42,11 @@ internal static class TrayIconFactory
     public static void WriteIco(string path) => File.WriteAllBytes(path, BuildIco(IconSizes));
 
     /// <summary>Renders the artwork to a fresh <see cref="Bitmap"/> of the given square size (the caller owns it).</summary>
-    public static Bitmap CreateBitmap(int size) => RenderBitmap(size);
+    public static Bitmap CreateBitmap(int size)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
+        return RenderBitmap(size);
+    }
 
     private static byte[] BuildIco(int[] sizes)
     {

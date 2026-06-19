@@ -22,7 +22,7 @@ internal static class VersionInfo
     {
         Informational = Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? "0.0.0";
+            ?? "0.0.0-alpha.0"; // matches MinVer's fallback when no version tag is reachable
 
         // The SDK appends the commit hash as SemVer build metadata: "<semver>+<hash>".
         var plus = Informational.IndexOf('+');
