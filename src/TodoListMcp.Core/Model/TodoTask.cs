@@ -17,15 +17,27 @@ public sealed class TodoTask
 
     /// <summary>
     /// Notes text (the &lt;COMMENTS&gt; child element). For any non-plain format this is ToDoList's
-    /// flattened plain-text mirror of the formatted content; see <see cref="CommentsFormat"/>.
+    /// flattened plain-text mirror of the formatted content — retained for search/display; see
+    /// <see cref="CommentsFormat"/>. For Markdown/HTML the editable source is in
+    /// <see cref="CommentsSource"/>.
     /// </summary>
     public string? Comments { get; init; }
 
     /// <summary>
+    /// The editable comment source decoded from &lt;CUSTOMCOMMENTS&gt;, populated only for the
+    /// formats this server can re-author — Markdown and HTML — so a read → edit → write round-trip
+    /// is lossless. Null for plain (use <see cref="Comments"/>), and for rich/spreadsheet/unknown
+    /// formats whose payloads are opaque (RTF / a ReoGrid workbook) and can't be written back; for
+    /// those, <see cref="Comments"/> remains the only available text.
+    /// </summary>
+    public string? CommentsSource { get; init; }
+
+    /// <summary>
     /// The comment format (ToDoList's <c>COMMENTSTYPE</c>) as a friendly name: "plain", "rich",
     /// "html", "markdown" or "spreadsheet"; the raw id for an unrecognised content control; null
-    /// when the task has no comments. This server only authors "plain" comments — when this is any
-    /// other value, <see cref="Comments"/> is a read-only flattened mirror of the formatted content.
+    /// when the task has no comments. <see cref="Comments"/> is always the plain-text mirror; for
+    /// "markdown"/"html" the editable source is also surfaced in <see cref="CommentsSource"/>, while
+    /// "rich"/"spreadsheet"/unknown formats expose only the (read-only) mirror.
     /// </summary>
     public string? CommentsFormat { get; init; }
 

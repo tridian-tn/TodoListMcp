@@ -78,6 +78,25 @@ public class TodoToolsTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    [Fact]
+    public void GetTask_surfaces_the_editable_source_for_an_authored_markdown_task()
+    {
+        // Issue #30: the source authored through the tool surface comes back via CommentsSource on a
+        // subsequent read (distinct from the flattened Comments mirror), closing the round-trip loop.
+        var (tools, dir) = NewTools();
+        try
+        {
+            var source = "# Plan\n\n- **a**\n- _b_";
+            tools.AddTask(title: "X", comments: source, commentsFormat: "markdown", list: "work");
+
+            var read = tools.GetTask(id: 2, list: "work");
+            Assert.Equal("markdown", read.CommentsFormat);
+            Assert.Equal(source, read.CommentsSource);
+            Assert.NotEqual(source, read.Comments);   // mirror is the flattened text, not the source
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     private sealed class StubOptionsMonitor : IOptionsMonitor<TodoListMcpOptions>
     {
         public StubOptionsMonitor(TodoListMcpOptions value) => CurrentValue = value;

@@ -141,6 +141,64 @@ public class MultiFormatCommentFileTests
         }
     }
 
+    // ---- issue #30: editable source surfaced for the authorable formats ----------------------
+
+    [Theory]
+    [InlineData(29)]   // HTML
+    [InlineData(30)]   // Markdown
+    public void Authorable_tasks_expose_the_decoded_custom_comments_as_source(int id)
+    {
+        var expected = Encoding.Unicode.GetString(
+            Convert.FromBase64String(CustomCommentsByIdFromFile(TestData.MultiCommentFormatFilePath())[id]));
+        Assert.Equal(expected, Load().GetTask(id)!.CommentsSource);
+    }
+
+    [Theory]
+    [InlineData(26)]   // plain — no <CUSTOMCOMMENTS> at all
+    [InlineData(27)]   // rich — opaque RTF
+    [InlineData(28)]   // spreadsheet — opaque workbook
+    public void Plain_and_preserve_only_tasks_expose_no_source(int id) =>
+        Assert.Null(Load().GetTask(id)!.CommentsSource);
+
+    [Fact]
+    public void Real_markdown_task_round_trips_an_edit_losslessly()
+    {
+        // Read the genuine Markdown source, edit it, write it back (opting past the overwrite guard),
+        // then save/reload and confirm the source survived, the payload is a byte-identical fresh
+        // encode, and the plain mirror was regenerated from the edit.
+        var doc = Load();
+        var original = doc.GetTask(30)!.CommentsSource;
+        Assert.False(string.IsNullOrEmpty(original));
+
+        var edited = original + "\n\n## Appended by the round-trip\n\n- **new** item";
+        doc.UpdateTask(30, new()
+        {
+            Comments = edited,
+            CommentsFormat = CommentContentFormat.Markdown,
+            ReplaceFormattedComments = true,
+        });
+
+        var tmp = Path.Combine(Path.GetTempPath(), "tdlmcp_rt_" + Guid.NewGuid().ToString("N") + ".tdl");
+        try
+        {
+            doc.SaveAs(tmp);
+            var reloaded = TodoListDocument.Load(tmp);
+            var t = reloaded.GetTask(30)!;
+
+            Assert.Equal("markdown", t.CommentsFormat);
+            Assert.Equal(edited, t.CommentsSource);                                 // source survived intact
+            Assert.Equal(CommentFormat.EncodeCustomComments(edited),
+                         CustomCommentsByIdFromFile(tmp)[30]);                       // byte-identical payload
+            Assert.Equal(CommentFormat.ToPlainMirror(CommentContentFormat.Markdown, edited),
+                         t.Comments);                                               // mirror regenerated
+            Assert.NotEqual(t.Comments, t.CommentsSource);                          // mirror stays distinct
+        }
+        finally
+        {
+            File.Delete(tmp);
+        }
+    }
+
     /// <summary>Maps task ID → raw &lt;CUSTOMCOMMENTS&gt; payload by parsing a saved .tdl file.</summary>
     private static Dictionary<int, string> CustomCommentsByIdFromFile(string path) =>
         CustomCommentsById(XDocument.Load(path));

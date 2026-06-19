@@ -36,7 +36,8 @@ The engine mirrors how ToDoList actually stores data (verified against a real ex
   (default), `D` days, `K` weekdays, `W` weeks, `M` months, `Y` years. The tools also accept the words.
   The derived `CALC*` rollups are ToDoList's to compute, so they're left untouched and never written.
 - Notes are the **`<COMMENTS>` child element** (not an attribute), with the format in `COMMENTSTYPE`.
-  This server reads tasks in **any** comment format but **authors only plain text** — see
+  This server reads tasks in **any** comment format and **authors plain text, Markdown and HTML**;
+  Markdown/HTML also expose their editable source for lossless round-trips — see
   [Task comments / notes](#task-comments--notes) for exactly what happens on read and write.
 - Assignees are **`<PERSON>` child elements** (or a single `ALLOCATEDTO` attribute); categories are
   **`<CATEGORY>`** likewise. Root-level pick-lists are *not* mistaken for per-task assignments.
@@ -65,13 +66,18 @@ pluggable "content control". This server **authors plain text, Markdown, and HTM
 When you author Markdown or HTML, the source is stored in `<CUSTOMCOMMENTS>` exactly as ToDoList
 encodes it (base64 of the UTF-16LE source bytes, no BOM), with a plain-text mirror in `<COMMENTS>`.
 The mirror matches how ToDoList derives it — the rendered text with markup removed (ToDoList uses the
-content control's `innerText`) — and ToDoList refreshes it itself on its next save. Rich Text and
-Spreadsheet stay read-only — their payloads are opaque (WordPad RTF / a ReoGrid workbook).
+content control's `innerText`) — and ToDoList refreshes it itself on its next save. On read, that same
+source is decoded back into **`CommentsSource`** for Markdown and HTML, so a read → edit → write
+round-trip is lossless; `Comments` stays the flattened mirror (what search and display use). Rich Text
+and Spreadsheet stay read-only — their payloads are opaque (WordPad RTF / a ReoGrid workbook), so they
+expose only the mirror and `CommentsSource` is null.
 
 > [!WARNING]
-> - **Reading a formatted task gives you the flattened plain-text mirror, _not_ the rich source.**
->   Check `CommentsFormat` — anything other than `plain` means the `Comments` text is the rendered
->   text with markup removed (HTML tags / Markdown syntax stripped), not what you'd edit in ToDoList.
+> - **`Comments` is always the flattened plain-text mirror, _not_ the rich source** — the rendered
+>   text with markup removed (HTML tags / Markdown syntax stripped). For **Markdown and HTML** the
+>   editable source is recovered into **`CommentsSource`** (use that to round-trip an edit). For
+>   **Rich Text and Spreadsheet** the payload is opaque, so `CommentsSource` is null and the mirror is
+>   all you get. Check `CommentsFormat` to tell which you're holding.
 > - **Overwriting a task's existing formatted notes is refused by default** — whatever new format
 >   you supply. Pass `replaceFormattedComments: true` to replace them anyway; this **discards
 >   ToDoList's existing rich `<CUSTOMCOMMENTS>` payload**. (Clearing the notes with an empty string is
@@ -79,14 +85,22 @@ Spreadsheet stay read-only — their payloads are opaque (WordPad RTF / a ReoGri
 > - Editing a formatted task's **other** fields never touches its comments — the rich payload is
 >   round-tripped untouched.
 
+To edit a Markdown or HTML task without losing its formatting, read `CommentsSource`, change it, and
+write it back in the same format — opting past the overwrite guard:
+
+```
+get_task(id) → { CommentsFormat: "markdown", CommentsSource: "# Plan\n\n- **a**" , Comments: "Plan\na" }
+update_task(id, comments: editedSource, commentsFormat: "markdown", replaceFormattedComments: true)
+```
+
 | Format | `COMMENTSTYPE` | Read | Author (`commentsFormat`) | On `update_task` notes |
 | --- | --- | --- | --- | --- |
-| Plain text | `PLAIN_TEXT` | ✅ full | ✅ `plain` (default) | Replaced normally. |
-| Markdown | `BAA4E079-…` | ⚠️ flattened mirror | ✅ `markdown` | Refused unless `replaceFormattedComments`. |
-| HTML | `FE0B6B6E-…` | ⚠️ flattened mirror | ✅ `html` | Refused unless `replaceFormattedComments`. |
-| Rich Text (RTF) | `849CF988-…` | ⚠️ flattened mirror | ❌ | Refused unless `replaceFormattedComments` (then replaced in the format you give). |
-| Spreadsheet | `BBDCAEDF-…` | ⚠️ flattened mirror | ❌ | As above. |
-| Other content control | (its GUID) | ⚠️ flattened mirror; `CommentsFormat` is the raw id | ❌ | As above. |
+| Plain text | `PLAIN_TEXT` | ✅ full (`Comments`) | ✅ `plain` (default) | Replaced normally. |
+| Markdown | `BAA4E079-…` | ✅ full source in `CommentsSource` (+ mirror in `Comments`) | ✅ `markdown` | Refused unless `replaceFormattedComments`. |
+| HTML | `FE0B6B6E-…` | ✅ full source in `CommentsSource` (+ mirror in `Comments`) | ✅ `html` | Refused unless `replaceFormattedComments`. |
+| Rich Text (RTF) | `849CF988-…` | ⚠️ flattened mirror only | ❌ | Refused unless `replaceFormattedComments` (then replaced in the format you give). |
+| Spreadsheet | `BBDCAEDF-…` | ⚠️ flattened mirror only | ❌ | As above. |
+| Other content control | (its GUID) | ⚠️ flattened mirror only; `CommentsFormat` is the raw id | ❌ | As above. |
 
 ## Requirements
 
