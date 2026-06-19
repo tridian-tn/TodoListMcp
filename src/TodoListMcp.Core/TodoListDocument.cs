@@ -33,6 +33,12 @@ public sealed class TodoListDocument
     /// <summary>Value written to LASTMODBY on mutated tasks.</summary>
     public string ModifiedBy { get; set; } = "TodoListMcp";
 
+    /// <summary>
+    /// True once a mutation has actually changed the document since it was loaded. Callers use
+    /// this to skip rewriting the file when an operation was a no-op (e.g. deleting a missing ID).
+    /// </summary>
+    public bool IsDirty { get; private set; }
+
     private TodoListDocument(XDocument doc, IClock clock, string? path)
     {
         _doc = doc;
@@ -445,6 +451,7 @@ public sealed class TodoListDocument
         if (parent != _root && (parent == e || e.Descendants("TASK").Any(d => d == parent)))
             throw new InvalidOperationException("Cannot move a task into itself or one of its descendants.");
 
+        var now = _clock.Now;
         e.Remove();
         var siblings = parent.Elements("TASK").ToList();
         if (index is int idx && idx >= 0 && idx < siblings.Count)
@@ -452,8 +459,11 @@ public sealed class TodoListDocument
         else
             parent.Add(e);
 
+        // The moved task's parent/position changed, so stamp it — mirroring AddTask. The
+        // renumbered siblings only get derived POS/POSSTRING and are left unstamped, as in AddTask.
+        Touch(e, now);
         Renumber();
-        TouchRoot(_clock.Now);
+        TouchRoot(now);
         return Project(e);
     }
 
@@ -606,6 +616,8 @@ public sealed class TodoListDocument
     {
         SetOaDate(_root, "LASTMOD", now);
         _root.SetAttributeValue("LASTMODSTRING", FormatStamp(now));
+        // Every successful mutation funnels through here; the no-op delete returns earlier.
+        IsDirty = true;
     }
 
     private static int ClampScale(int v) => Math.Clamp(v, 0, 10);
