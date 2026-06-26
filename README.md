@@ -1,7 +1,7 @@
 # TodoList MCP Win (An MCP server for AbstractSpoon ToDoList)
 
 A Windows system-tray application that exposes [AbstractSpoon ToDoList](https://abstractspoon.com/)
-`.tdl` files to MCP clients (Claude Desktop, Claude Code, etc.) over a local **Streamable HTTP**
+`.tdl` files to MCP clients (Claude Desktop, Claude Code, Codex etc.) over a local **Streamable HTTP**
 endpoint. It can serve any number of `.tdl` files listed in a configuration file.
 
 The tray app - rather than a stdio MCP server - is a persistent host you
@@ -46,7 +46,7 @@ and unzip the app.
    icon → **Open configuration…**, add your `.tdl` files, and save. The file list is picked up live —
    no restart needed. See [Configure](#configure) for the exact format.
 
-5. **Connect Claude.** Follow [Connect Claude](#connect-claude) for Claude Code or Claude Desktop.
+5. **Connect an LLM.** Follow [Connect Claude](#connect-claude) for Claude Code or Claude Desktop. Also tested with Codex, and other LLMs are available.
 
 Optional: right-click the tray icon → **Start with Windows** so it launches automatically at logon —
 see [Using the tray app](#using-the-tray-app).
@@ -111,7 +111,7 @@ If you skipped the prompt, re-run it any time from the tray: **Trust HTTPS certi
 Node-based clients (Claude Code, and the `mcp-remote` bridge) need one extra setting to honour that
 certificate; see [Connect Claude](#connect-claude).
 
-## Connect Claude
+## Connect an LLM
 
 The server speaks MCP over **Streamable HTTP** at the root path: `http(s)://localhost:<Port>/`,
 port `3001` by default. It listens on loopback only, so it's reachable from programs on this machine
@@ -198,6 +198,14 @@ this entirely. Restart Claude Desktop after editing the file.
 > Code path is the tested one. If you try it, feedback is welcome.
 
 [mcp-remote]: https://www.npmjs.com/package/mcp-remote
+
+### Codex
+
+With the Codex desktop application, enter the Settings, navigate to Integrations->MCP Servers and click Add Server.
+
+* The transport is "Streamable HTTP", not "STDIO"
+* Enter the URL: `http://localhost:3001/`
+* Click Save
 
 ## Using the tray app
 
