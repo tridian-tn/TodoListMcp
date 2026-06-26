@@ -150,6 +150,23 @@ public sealed class TodoListDocument
         return e is null ? null : Project(e);
     }
 
+    /// <summary>
+    /// The task's display path — the backslash-joined titles of its ancestors with a trailing
+    /// backslash, matching the Path column ToDoList snapshots into its time log. Empty for a
+    /// top-level task; null when the task is not found.
+    /// </summary>
+    public string? GetTaskPath(int id)
+    {
+        var e = FindTaskElement(id);
+        if (e is null) return null;
+        var titles = new List<string>();
+        for (var p = e.Parent; p is not null && p.Name.LocalName == "TASK"; p = p.Parent)
+            titles.Add((string?)p.Attribute("TITLE") ?? "");
+        if (titles.Count == 0) return "";
+        titles.Reverse();
+        return string.Join("\\", titles) + "\\";
+    }
+
     /// <summary>Flat list of tasks matching every supplied criterion.</summary>
     public IReadOnlyList<TodoTask> Search(TaskQuery query)
     {

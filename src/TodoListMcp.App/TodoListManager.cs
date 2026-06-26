@@ -89,16 +89,20 @@ public sealed class TodoListManager
             // .tdl, so load it once. A task entry must reference a task that exists in this list.
             TodoListDocument? doc = null;
             var title = "";
+            string? path = null;
             if (req.TaskId > 0)
             {
                 doc = LoadOrThrow(entry);
                 title = (doc.GetTask(req.TaskId) ?? throw new TaskNotFoundException(req.TaskId)).Title;
+                path = doc.GetTaskPath(req.TaskId); // snapshot the ancestor path, as ToDoList does
                 if (req.AddToTimeSpent)
                     doc.IncrementTimeSpent(req.TaskId, hours);
             }
 
-            var to = req.To ?? req.When ?? DateTime.Now;
-            var from = req.From ?? to.AddHours(-hours);
+            // The sidecar stores HH:mm, so truncate to the minute up front — otherwise the returned
+            // entry would carry seconds the persisted row (and a re-read) silently drops.
+            var to = TruncateToMinute(req.To ?? req.When ?? DateTime.Now);
+            var from = TruncateToMinute(req.From ?? to.AddHours(-hours));
             var logEntry = new Core.Model.TimeLogEntry
             {
                 TaskId = req.TaskId,
@@ -111,6 +115,7 @@ public sealed class TodoListManager
                 Hours = hours,
                 Comment = string.IsNullOrWhiteSpace(req.Comment) ? null : req.Comment,
                 Type = string.IsNullOrWhiteSpace(req.Type) ? "Adjusted" : req.Type.Trim(),
+                Path = string.IsNullOrEmpty(path) ? null : path,
             };
 
             // Write the sidecar first, then commit the .tdl increment (see the method remark).
@@ -121,6 +126,10 @@ public sealed class TodoListManager
             _log.LogInformation("Logged {Hours}h to list '{Alias}' ({Path}).", hours, entry.Alias, LogPath(entry));
             return logEntry;
         });
+
+    /// <summary>Drops the seconds/sub-second part of a timestamp (the log stores minute precision).</summary>
+    private static DateTime TruncateToMinute(DateTime dt) =>
+        dt.AddTicks(-(dt.Ticks % TimeSpan.TicksPerMinute));
 
     /// <summary>Resolves the time-log sidecar path (<c>&lt;listname&gt;_Log.csv</c>) beside the .tdl.</summary>
     private static string LogPath(TodoFileEntry entry)

@@ -95,10 +95,39 @@ public class LogTimeTests : IDisposable
         Assert.True(File.Exists(_logPath));
     }
 
+    [Fact]
+    public void LogTime_snapshots_the_task_ancestor_path()
+    {
+        var manager = Manager();
+        // Task 2 is nested under task 1 ("A"), so its logged Path is "A\".
+        var entry = manager.LogTime("work", new LogTimeRequest { TaskId = 2, Hours = 1.0, Comment = "child work" });
+        Assert.Equal(@"A\", entry.Path);
+
+        // And it round-trips through the sidecar.
+        var read = Assert.Single(manager.ReadLog("work", new TimeLogQuery { TaskId = 2 }));
+        Assert.Equal(@"A\", read.Path);
+    }
+
+    [Fact]
+    public void LogTime_truncates_the_period_to_minute_precision()
+    {
+        var manager = Manager();
+        // When omitted, the period derives from DateTime.Now — the persisted row stores only HH:mm,
+        // so the returned entry must already be minute-aligned to match what a re-read yields.
+        var entry = manager.LogTime("work", new LogTimeRequest { TaskId = 1, Hours = 0.5, Comment = "x" });
+        Assert.Equal(0, entry.From.Second);
+        Assert.Equal(0, entry.To.Second);
+
+        var read = Assert.Single(manager.ReadLog("work", new TimeLogQuery { TaskId = 1 }));
+        Assert.Equal(entry.From, read.From);
+        Assert.Equal(entry.To, read.To);
+    }
+
     private const string MinimalTdl =
         "<?xml version=\"1.0\" encoding=\"utf-16\"?>" +
-        "<TODOLIST PROJECTNAME=\"T\" NEXTUNIQUEID=\"2\">" +
-        "<TASK ID=\"1\" TITLE=\"A\" POS=\"0\" POSSTRING=\"1\"/></TODOLIST>";
+        "<TODOLIST PROJECTNAME=\"T\" NEXTUNIQUEID=\"3\">" +
+        "<TASK ID=\"1\" TITLE=\"A\" POS=\"0\" POSSTRING=\"1\">" +
+        "<TASK ID=\"2\" TITLE=\"Child\" POS=\"0\" POSSTRING=\"1.1\"/></TASK></TODOLIST>";
 
     private sealed class StubOptionsMonitor : IOptionsMonitor<TodoListMcpOptions>
     {
