@@ -102,7 +102,8 @@ public sealed class TodoTask
     /// File and URL links attached to the task (the &lt;FILEREFPATH&gt; child elements; the UI's
     /// "File Link" field). Each may be a local/network path, an http(s)/mailto URL, an Outlook
     /// folder, or a tdl://&lt;id&gt; task link. Surfaced and stored verbatim — relative paths are
-    /// relative to the .tdl file's folder and are not normalised.
+    /// relative to the .tdl file's folder and are not normalised. Exact duplicates are collapsed
+    /// case-insensitively (as ToDoList does); empty/whitespace-only entries are dropped.
     /// </summary>
     public IReadOnlyList<string> FileLinks { get; init; } = Array.Empty<string>();
 
