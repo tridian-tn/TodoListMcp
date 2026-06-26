@@ -322,6 +322,9 @@ rolled-up total. `log_time` appends an entry; `get_time_log` reads them back.
   (keeping the task's existing unit), mirroring the dialog's "Add to time spent" checkbox. The `.tdl`
   and the sidecar are written under the same per-list lock, sidecar first — so an interrupted write
   leaves the log entry without its `TimeSpent` bump, never an inflated `TimeSpent` with no log entry.
+- **Reading back** — `get_time_log` filters by `taskId`, `person`, and a `since`/`until` date range.
+  A bare `until` date is inclusive of that whole day, so `since` = `until` = today returns everything
+  logged today (an explicit time on `until` is used as-is).
 
 The sidecar is written as ToDoList writes it: UTF-16, a `TODOTIMELOG VERSION 1` line, a header row,
 then tab-separated rows (`Task ID, Title, User ID, Start/End Date/Time, Time Spent (Hrs), Comment,

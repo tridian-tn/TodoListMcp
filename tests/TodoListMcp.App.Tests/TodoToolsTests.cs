@@ -122,6 +122,31 @@ public class TodoToolsTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    [Fact]
+    public void GetTimeLog_single_day_range_includes_entries_logged_that_day()
+    {
+        // Regression: a bare "until" date was treated as midnight, so since=until=today (the natural
+        // "what did I log today?" query) excluded every entry whose start time was after 00:00.
+        var (tools, dir) = NewTools();
+        try
+        {
+            tools.LogTime(hours: 2, taskId: 1, when: "2026-06-26 14:00", comment: "afternoon work", list: "work");
+
+            var sameDay = tools.GetTimeLog(since: "2026-06-26", until: "2026-06-26", list: "work");
+            var entry = Assert.Single(sameDay);
+            Assert.Equal(2.0, entry.Hours, 3);
+
+            // An explicit upper-bound time is honoured verbatim (not bumped to end of day): the entry
+            // starts at 12:00 (when − hours), so an 11:00 bound excludes it.
+            Assert.Empty(tools.GetTimeLog(since: "2026-06-26", until: "2026-06-26 11:00", list: "work"));
+
+            // Even an explicit midnight is verbatim — it must not be mistaken for a bare date and
+            // bumped to end-of-day, so it excludes the 12:00-start entry.
+            Assert.Empty(tools.GetTimeLog(since: "2026-06-26", until: "2026-06-26 00:00", list: "work"));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     private sealed class StubOptionsMonitor : IOptionsMonitor<TodoListMcpOptions>
     {
         public StubOptionsMonitor(TodoListMcpOptions value) => CurrentValue = value;

@@ -268,14 +268,14 @@ public sealed class TodoTools
     public IReadOnlyList<TimeLogEntry> GetTimeLog(
         [Description("Only entries for this task ID. Use 0 for task-less entries. Omit for all.")] int? taskId = null,
         [Description("Only entries ending on or after this date (yyyy-MM-dd or ISO 8601).")] string? since = null,
-        [Description("Only entries starting on or before this date (yyyy-MM-dd or ISO 8601).")] string? until = null,
+        [Description("Only entries starting on or before this date, inclusive of the whole day when no time is given (yyyy-MM-dd or ISO 8601). So since=until=today returns everything logged today.")] string? until = null,
         [Description("Only entries logged by this person (case-insensitive, exact).")] string? person = null,
         [Description("Alias of the configured list. Omit to use the default list.")] string? list = null) =>
         _manager.ReadLog(list, new TimeLogQuery
         {
             TaskId = taskId,
             Since = ParseDate(since),
-            Until = ParseDate(until),
+            Until = ParseUpperBoundDate(until),
             Person = person,
         });
 
@@ -285,6 +285,21 @@ public sealed class TodoTools
         if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
             return dt;
         throw new ArgumentException($"Could not parse date '{value}'. Use yyyy-MM-dd or ISO 8601.");
+    }
+
+    /// <summary>
+    /// Parses an inclusive upper-bound date. A date-only input (no time component) is taken as the
+    /// end of that day, so a single-day range (e.g. since and until both "today") includes entries
+    /// logged during the day rather than only ones starting exactly at midnight. An explicit time —
+    /// including an explicit midnight — is honoured verbatim. Date-only is detected from the input
+    /// itself (a time always carries a ':'), so an explicit "...00:00" is not mistaken for a bare
+    /// date; the end-of-day is computed tick-wise so it can't overflow at DateTime.MaxValue.
+    /// </summary>
+    private static DateTime? ParseUpperBoundDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var dt = ParseDate(value)!.Value;
+        return value.Contains(':') ? dt : dt.Date.AddTicks(TimeSpan.TicksPerDay - 1);
     }
 
     private static TimeUnit? ParseUnit(string? value, string paramName)
