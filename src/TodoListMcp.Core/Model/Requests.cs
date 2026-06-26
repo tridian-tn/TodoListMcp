@@ -57,6 +57,9 @@ public sealed class AddTaskRequest
 
     /// <summary>Who assigned the task (single value).</summary>
     public string? AllocatedBy { get; init; }
+
+    /// <summary>File/URL links to attach (the FILEREFPATH field). Stored verbatim.</summary>
+    public IReadOnlyList<string> FileLinks { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -152,6 +155,9 @@ public sealed class UpdateTaskRequest
 
     /// <summary>Null = unchanged; a value (including empty string) replaces who allocated the task.</summary>
     public string? AllocatedBy { get; init; }
+
+    /// <summary>Null = unchanged; a list (including empty) replaces the file/URL links.</summary>
+    public IReadOnlyList<string>? FileLinks { get; init; }
 }
 
 /// <summary>Filters for searching tasks. All criteria are combined with AND.</summary>

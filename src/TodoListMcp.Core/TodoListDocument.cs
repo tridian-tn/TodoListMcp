@@ -16,6 +16,9 @@ namespace TodoListMcp.Core;
 ///  - Notes live in a &lt;COMMENTS&gt; child element (COMMENTSTYPE="PLAIN_TEXT"), not an attribute.
 ///  - Assignees are &lt;PERSON&gt; child elements (or a single ALLOCATEDTO attribute).
 ///  - Categories are &lt;CATEGORY&gt; child elements (or a single CATEGORY attribute).
+///  - File links are &lt;FILEREFPATH&gt; child elements. ToDoList writes these (and the multi-value
+///    fields above) as repeated child elements even for a single value; the attribute form is only
+///    a legacy read fallback, so writes always emit elements to match its on-disk format.
 ///  - A task is "done" when it has a DONEDATE.
 ///
 /// Mutations operate directly on the loaded XML tree so that attributes and elements this
@@ -231,6 +234,7 @@ public sealed class TodoListDocument
         Categories = ReadMulti(e, "CATEGORY", "CATEGORY"),
         AllocatedTo = ReadMulti(e, "ALLOCATEDTO", "PERSON"),
         AllocatedBy = TrimToNull((string?)e.Attribute("ALLOCATEDBY")),
+        FileLinks = ReadMulti(e, "FILEREFPATH", "FILEREFPATH"),
         Position = (string?)e.Attribute("POSSTRING") ?? "",
         Subtasks = includeSubtasks
             ? e.Elements("TASK").Select(child => Project(child)).ToList()
@@ -377,6 +381,7 @@ public sealed class TodoListDocument
         if (req.ExternalId is not null) SetExternalId(e, req.ExternalId);
         SetMulti(e, "CATEGORY", "CATEGORY", req.Categories);
         SetMulti(e, "ALLOCATEDTO", "PERSON", req.AllocatedTo);
+        SetMulti(e, "FILEREFPATH", "FILEREFPATH", req.FileLinks);
         if (req.AllocatedBy is not null) SetAllocatedBy(e, req.AllocatedBy);
         Touch(e, now);
 
@@ -446,6 +451,7 @@ public sealed class TodoListDocument
 
         if (req.Categories is not null) SetMulti(e, "CATEGORY", "CATEGORY", req.Categories);
         if (req.AllocatedTo is not null) SetMulti(e, "ALLOCATEDTO", "PERSON", req.AllocatedTo);
+        if (req.FileLinks is not null) SetMulti(e, "FILEREFPATH", "FILEREFPATH", req.FileLinks);
 
         Touch(e, now);
         TouchRoot(now);
@@ -617,24 +623,19 @@ public sealed class TodoListDocument
 
     private static void SetMulti(XElement e, string attrName, string childName, IReadOnlyList<string> values)
     {
+        // Clear both representations first: the legacy single-value attribute form (which ToDoList
+        // still reads) and any existing child elements, so a replace can't leave a stale value behind.
         e.SetAttributeValue(attrName, null);
         foreach (var c in e.Elements(childName).ToList()) c.Remove();
 
-        var vals = values
+        // ToDoList always writes these multi-value fields as repeated child elements — even a single
+        // value — so emit elements unconditionally to match its on-disk format exactly.
+        foreach (var v in values
             .Where(v => !string.IsNullOrWhiteSpace(v))
             .Select(v => v.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (vals.Count == 0) return;
-        if (vals.Count == 1)
+            .Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            // ToDoList writes a single value as an attribute.
-            e.SetAttributeValue(attrName, vals[0]);
-        }
-        else
-        {
-            foreach (var v in vals) e.Add(new XElement(childName, v));
+            e.Add(new XElement(childName, v));
         }
     }
 
