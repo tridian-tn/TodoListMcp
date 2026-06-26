@@ -239,6 +239,17 @@ public class AddTaskTests
     }
 
     [Fact]
+    public void File_links_are_stored_verbatim_without_trimming()
+    {
+        var doc = TestData.Sample();
+        // Leading/trailing whitespace is part of the path — ToDoList does not trim array items, so
+        // neither do we. (Categories/assignees still trim; file links are the verbatim exception.)
+        var created = doc.AddTask(new() { Title = "Spaced", FileLinks = new[] { "  spaced path.txt  " } });
+
+        Assert.Equal(new[] { "  spaced path.txt  " }, doc.GetTask(created.Id)!.FileLinks);
+    }
+
+    [Fact]
     public void Add_single_file_link_written_as_element_not_attribute()
     {
         var doc = TestData.Sample();

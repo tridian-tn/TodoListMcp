@@ -391,8 +391,9 @@ The engine mirrors how ToDoList actually stores data (verified against a real ex
 - Assignees are **`<PERSON>` child elements** (or a single `ALLOCATEDTO` attribute); categories are
   **`<CATEGORY>`** likewise, and file/URL links (the "File Link" field) are **`<FILEREFPATH>`**.
   Like ToDoList, this server always **writes** these as repeated child elements — even a single value —
-  and reads the legacy single-attribute form too. Root-level pick-lists are *not* mistaken for
-  per-task assignments.
+  and reads the legacy single-attribute form too. Exact duplicates are collapsed case-insensitively
+  (as ToDoList does); file links are stored **verbatim** otherwise — no trimming or path normalisation.
+  Root-level pick-lists are *not* mistaken for per-task assignments.
 - Completion is detected from **`DONEDATE`** (the source of truth). ToDoList's calculated
   **`GOODASDONE`** flag (set by the "treat parents with all subtasks completed as done" option) is
   surfaced read-only as `IsGoodAsDone`, and kept in sync when this server completes/reopens a task.

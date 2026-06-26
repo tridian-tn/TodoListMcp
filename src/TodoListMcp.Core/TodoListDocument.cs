@@ -234,7 +234,7 @@ public sealed class TodoListDocument
         Categories = ReadMulti(e, "CATEGORY", "CATEGORY"),
         AllocatedTo = ReadMulti(e, "ALLOCATEDTO", "PERSON"),
         AllocatedBy = TrimToNull((string?)e.Attribute("ALLOCATEDBY")),
-        FileLinks = ReadMulti(e, "FILEREFPATH", "FILEREFPATH"),
+        FileLinks = ReadMulti(e, "FILEREFPATH", "FILEREFPATH", trim: false),
         Position = (string?)e.Attribute("POSSTRING") ?? "",
         Subtasks = includeSubtasks
             ? e.Elements("TASK").Select(child => Project(child)).ToList()
@@ -324,13 +324,19 @@ public sealed class TodoListDocument
         return TimeUnits.TryParse(unitWord, out var u) ? TimeUnits.ToHours(v, u) : v;
     }
 
-    private static IReadOnlyList<string> ReadMulti(XElement e, string attrName, string childName)
+    /// <summary>
+    /// Reads a multi-value field from its attribute (legacy single-value form) and repeated child
+    /// elements, de-duplicating case-insensitively to match ToDoList (its <c>AddTaskArrayItem</c>
+    /// skips a value already present case-insensitively). When <paramref name="trim"/> is false the
+    /// kept values are surfaced verbatim — used for file links, which must not be normalised.
+    /// </summary>
+    private static IReadOnlyList<string> ReadMulti(XElement e, string attrName, string childName, bool trim = true)
     {
         var values = new List<string>();
         var attr = (string?)e.Attribute(attrName);
-        if (!string.IsNullOrWhiteSpace(attr)) values.Add(attr.Trim());
+        if (!string.IsNullOrWhiteSpace(attr)) values.Add(trim ? attr.Trim() : attr);
         foreach (var c in e.Elements(childName))
-            if (!string.IsNullOrWhiteSpace(c.Value)) values.Add(c.Value.Trim());
+            if (!string.IsNullOrWhiteSpace(c.Value)) values.Add(trim ? c.Value.Trim() : c.Value);
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
@@ -381,7 +387,7 @@ public sealed class TodoListDocument
         if (req.ExternalId is not null) SetExternalId(e, req.ExternalId);
         SetMulti(e, "CATEGORY", "CATEGORY", req.Categories);
         SetMulti(e, "ALLOCATEDTO", "PERSON", req.AllocatedTo);
-        SetMulti(e, "FILEREFPATH", "FILEREFPATH", req.FileLinks);
+        SetMulti(e, "FILEREFPATH", "FILEREFPATH", req.FileLinks, trim: false);
         if (req.AllocatedBy is not null) SetAllocatedBy(e, req.AllocatedBy);
         Touch(e, now);
 
@@ -451,7 +457,7 @@ public sealed class TodoListDocument
 
         if (req.Categories is not null) SetMulti(e, "CATEGORY", "CATEGORY", req.Categories);
         if (req.AllocatedTo is not null) SetMulti(e, "ALLOCATEDTO", "PERSON", req.AllocatedTo);
-        if (req.FileLinks is not null) SetMulti(e, "FILEREFPATH", "FILEREFPATH", req.FileLinks);
+        if (req.FileLinks is not null) SetMulti(e, "FILEREFPATH", "FILEREFPATH", req.FileLinks, trim: false);
 
         Touch(e, now);
         TouchRoot(now);
@@ -621,18 +627,23 @@ public sealed class TodoListDocument
             child.AddAfterSelf(new XElement("CUSTOMCOMMENTS", CommentFormat.EncodeCustomComments(text)));
     }
 
-    private static void SetMulti(XElement e, string attrName, string childName, IReadOnlyList<string> values)
+    /// <summary>
+    /// Writes a multi-value field as repeated child elements, replacing whatever was there. ToDoList
+    /// always emits these as child elements — even a single value (its <c>SetTaskArray</c> uses
+    /// <c>XIT_ELEMENT</c>) — and de-duplicates case-insensitively on add, so this mirrors both. When
+    /// <paramref name="trim"/> is false the values are written verbatim — used for file links, whose
+    /// paths must not be normalised (ToDoList does not trim array items either).
+    /// </summary>
+    private static void SetMulti(XElement e, string attrName, string childName, IReadOnlyList<string> values, bool trim = true)
     {
         // Clear both representations first: the legacy single-value attribute form (which ToDoList
         // still reads) and any existing child elements, so a replace can't leave a stale value behind.
         e.SetAttributeValue(attrName, null);
         foreach (var c in e.Elements(childName).ToList()) c.Remove();
 
-        // ToDoList always writes these multi-value fields as repeated child elements — even a single
-        // value — so emit elements unconditionally to match its on-disk format exactly.
         foreach (var v in values
             .Where(v => !string.IsNullOrWhiteSpace(v))
-            .Select(v => v.Trim())
+            .Select(v => trim ? v.Trim() : v)
             .Distinct(StringComparer.OrdinalIgnoreCase))
         {
             e.Add(new XElement(childName, v));
