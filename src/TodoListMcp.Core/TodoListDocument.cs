@@ -14,11 +14,10 @@ namespace TodoListMcp.Core;
 ///  - Dates are OLE-automation serials (days since 1899-12-30) → DateTime.FromOADate / ToOADate.
 ///  - PRIORITY is a 0–10 scale; -2 means "no priority".
 ///  - Notes live in a &lt;COMMENTS&gt; child element (COMMENTSTYPE="PLAIN_TEXT"), not an attribute.
-///  - Assignees are &lt;PERSON&gt; child elements (or a single ALLOCATEDTO attribute).
-///  - Categories are &lt;CATEGORY&gt; child elements (or a single CATEGORY attribute).
-///  - File links are &lt;FILEREFPATH&gt; child elements. ToDoList writes these (and the multi-value
-///    fields above) as repeated child elements even for a single value; the attribute form is only
-///    a legacy read fallback, so writes always emit elements to match its on-disk format.
+///  - Assignees (&lt;PERSON&gt;), categories (&lt;CATEGORY&gt;) and file links (&lt;FILEREFPATH&gt;) are
+///    multi-value child elements. ToDoList writes them as repeated child elements even for a single
+///    value, so writes always emit elements to match its on-disk format; the single-value attribute
+///    form (e.g. ALLOCATEDTO="x") is only a legacy form still accepted on read.
 ///  - A task is "done" when it has a DONEDATE.
 ///
 /// Mutations operate directly on the loaded XML tree so that attributes and elements this
