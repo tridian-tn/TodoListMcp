@@ -273,4 +273,261 @@ public class TimeLogTests : IDisposable
         Assert.Empty(log.Entries);
         Assert.False(log.IsDirty);
     }
+
+    // ---- Editing / deleting -----------------------------------------------
+
+    [Fact]
+    public void Update_changes_matched_entry_and_keeps_unset_fields()
+    {
+        var log = TimeLogDocument.Parse(LatestSample);
+        var updated = log.Update(
+            new TimeLogSelector { TaskId = 771 },
+            new TimeLogEdit { From = new DateTime(2025, 1, 27, 10, 0, 0), To = new DateTime(2025, 1, 27, 11, 0, 0) });
+
+        Assert.Equal(new DateTime(2025, 1, 27, 10, 0, 0), updated.From);
+        Assert.Equal(new DateTime(2025, 1, 27, 11, 0, 0), updated.To);
+        Assert.Equal("Fix bug", updated.TaskTitle); // untouched fields preserved
+        Assert.Equal("Tracked", updated.Type);
+        Assert.Equal(@"MPD-16\", updated.Path);
+        Assert.True(log.IsDirty);
+
+        // The other row is untouched.
+        Assert.Equal("SP DAY", log.Entries[1].Comment);
+    }
+
+    [Fact]
+    public void Update_re_serialises_the_edited_row_in_the_latest_layout()
+    {
+        // Edit the legacy Colour-bearing task-less row; its verbatim raw (incl. -65536) is dropped
+        // and the row is rewritten in the 12-column layout, while the other row stays verbatim.
+        var log = TimeLogDocument.Parse(LatestSample);
+        log.Update(
+            new TimeLogSelector { TaskId = 0, Comment = "SP DAY" },
+            new TimeLogEdit { Comment = "rest day" });
+
+        var text = log.ToText();
+        Assert.Contains("rest day", text);
+        Assert.DoesNotContain("SP DAY", text);
+        Assert.DoesNotContain("-65536", text); // the dropped legacy Colour value
+        Assert.Contains(@"771	Fix bug	tryst	2025-01-27	16:54", text); // the other row, verbatim
+    }
+
+    [Fact]
+    public void Update_can_clear_a_comment_via_empty_string()
+    {
+        // Editing the timed task row (a valid period keeps it valid); an empty string clears the comment.
+        var log = TimeLogDocument.Parse(LatestSample);
+        var updated = log.Update(
+            new TimeLogSelector { TaskId = 771 },
+            new TimeLogEdit { Comment = "" });
+        Assert.Null(updated.Comment);
+    }
+
+    [Fact]
+    public void Update_rejects_an_edit_that_leaves_the_entry_invalid()
+    {
+        // A comment-only, zero-hour entry is valid only by virtue of its comment; clearing it is refused.
+        var log = TimeLogDocument.Load(Path.Combine(_dir, "Tasks_Log.csv"));
+        log.Append(new TimeLogEntry
+        {
+            TaskId = 0, Hours = 0, Comment = "note only",
+            From = new DateTime(2026, 2, 1), To = new DateTime(2026, 2, 1), Type = "Adjusted",
+        });
+        Assert.Throws<ArgumentException>(() => log.Update(
+            new TimeLogSelector { Comment = "note only" },
+            new TimeLogEdit { Comment = "" }));
+    }
+
+    [Fact]
+    public void Update_persists_across_a_disk_round_trip()
+    {
+        var path = Path.Combine(_dir, "Tasks_Log.csv");
+        File.WriteAllText(path, LatestSample, new UnicodeEncoding(false, true));
+
+        var log = TimeLogDocument.Load(path);
+        log.Update(
+            new TimeLogSelector { TaskId = 771 },
+            new TimeLogEdit { Comment = "now with a note" });
+        log.Save();
+
+        var reloaded = TimeLogDocument.Load(path);
+        Assert.Equal(2, reloaded.Entries.Count);
+        Assert.Equal("now with a note", reloaded.Read(new TimeLogQuery { TaskId = 771 })[0].Comment);
+    }
+
+    [Fact]
+    public void Delete_removes_the_matched_entry()
+    {
+        var log = TimeLogDocument.Parse(LatestSample);
+        var removed = log.Delete(new TimeLogSelector { TaskId = 771 });
+
+        Assert.Equal(771, removed.TaskId);
+        Assert.True(log.IsDirty);
+        var remaining = Assert.Single(log.Entries);
+        Assert.Equal(0, remaining.TaskId); // only the task-less row is left
+    }
+
+    [Fact]
+    public void Delete_then_save_drops_the_row_on_disk()
+    {
+        var path = Path.Combine(_dir, "Tasks_Log.csv");
+        File.WriteAllText(path, LatestSample, new UnicodeEncoding(false, true));
+
+        var log = TimeLogDocument.Load(path);
+        log.Delete(new TimeLogSelector { TaskId = 0, Comment = "SP DAY" });
+        log.Save();
+
+        var reloaded = TimeLogDocument.Load(path);
+        Assert.Equal(771, Assert.Single(reloaded.Entries).TaskId);
+    }
+
+    [Fact]
+    public void Selector_matching_no_entry_throws_not_found()
+    {
+        var log = TimeLogDocument.Parse(LatestSample);
+        Assert.Throws<TimeLogEntryNotFoundException>(() => log.Delete(new TimeLogSelector { TaskId = 999 }));
+        Assert.Throws<TimeLogEntryNotFoundException>(() => log.Update(
+            new TimeLogSelector { TaskId = 999 }, new TimeLogEdit { Comment = "x" }));
+    }
+
+    [Fact]
+    public void Ambiguous_selector_throws_and_changes_nothing()
+    {
+        // Two rows share person "tryst"; selecting on person alone is ambiguous.
+        var log = TimeLogDocument.Parse(LatestSample);
+        var ex = Assert.Throws<AmbiguousTimeLogMatchException>(() =>
+            log.Delete(new TimeLogSelector { Person = "tryst" }));
+        Assert.Equal(2, ex.MatchCount);
+        Assert.Equal(2, log.Entries.Count); // nothing removed
+        Assert.False(log.IsDirty);
+    }
+
+    [Fact]
+    public void Empty_selector_is_rejected()
+    {
+        var log = TimeLogDocument.Parse(LatestSample);
+        Assert.Throws<ArgumentException>(() => log.Delete(new TimeLogSelector()));
+    }
+
+    [Fact]
+    public void Update_with_no_changes_is_rejected()
+    {
+        var log = TimeLogDocument.Parse(LatestSample);
+        Assert.Throws<ArgumentException>(() => log.Update(new TimeLogSelector { TaskId = 771 }, new TimeLogEdit()));
+    }
+
+    [Fact]
+    public void Selector_matches_timestamps_to_the_minute()
+    {
+        // A selector From carrying seconds still matches the minute-precision stored row.
+        var log = TimeLogDocument.Parse(LatestSample);
+        var removed = log.Delete(new TimeLogSelector { From = new DateTime(2025, 1, 27, 16, 54, 38) });
+        Assert.Equal(771, removed.TaskId);
+    }
+
+    [Fact]
+    public void Update_then_save_writes_the_edited_row_in_layout_and_keeps_others_verbatim_on_disk()
+    {
+        var path = Path.Combine(_dir, "Tasks_Log.csv");
+        File.WriteAllText(path, LatestSample, new UnicodeEncoding(false, true));
+
+        var log = TimeLogDocument.Load(path);
+        log.Update(
+            new TimeLogSelector { TaskId = 771 },
+            new TimeLogEdit
+            {
+                From = new DateTime(2025, 1, 27, 10, 0, 0),
+                To = new DateTime(2025, 1, 27, 11, 0, 0),
+                Comment = "moved",
+            });
+        log.Save();
+
+        var bytes = File.ReadAllBytes(path);
+        Assert.True(bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE, "expected UTF-16 LE BOM");
+
+        var text = File.ReadAllText(path, Encoding.Unicode);
+        Assert.StartsWith("TODOTIMELOG VERSION 1\n", text);
+        Assert.Contains("Task ID\tTitle\tUser ID\t", text); // header intact
+        // The edited row is rewritten in the 12-column layout with the new period and comment, while
+        // its unchanged columns (title/hours/type/path) survive.
+        Assert.Contains("771\tFix bug\ttryst\t2025-01-27\t10:00\t2025-01-27\t11:00\t0.365\tmoved\tTracked\tMPD-16\\", text);
+        // The untouched task-less row — including the legacy Colour value we don't model — is verbatim.
+        Assert.Contains("0\t\ttryst\t2026-01-12\t09:00\t2026-01-12\t16:00\t7.000\tSP DAY\t\t\t-65536", text);
+        Assert.DoesNotContain("\r\n", text);   // bare-LF endings
+        Assert.DoesNotContain("\n\n", text);    // no blank/duplicated lines
+    }
+
+    [Fact]
+    public void Delete_then_save_drops_only_the_matched_row_text_on_disk()
+    {
+        var path = Path.Combine(_dir, "Tasks_Log.csv");
+        File.WriteAllText(path, LatestSample, new UnicodeEncoding(false, true));
+
+        var log = TimeLogDocument.Load(path);
+        log.Delete(new TimeLogSelector { TaskId = 771 });
+        log.Save();
+
+        var text = File.ReadAllText(path, Encoding.Unicode);
+        Assert.StartsWith("TODOTIMELOG VERSION 1\n", text);
+        Assert.Contains("Task ID\tTitle\tUser ID\t", text);
+        Assert.DoesNotContain("Fix bug", text); // the deleted row is gone
+        // The surviving row is verbatim, including the legacy Colour value.
+        Assert.Contains("0\t\ttryst\t2026-01-12\t09:00\t2026-01-12\t16:00\t7.000\tSP DAY\t\t\t-65536", text);
+        // Exactly one data row remains: version + header + one row + trailing newline → 3 newlines.
+        Assert.Equal(3, text.Count(c => c == '\n'));
+        Assert.DoesNotContain("\n\n", text);
+    }
+
+    [Fact]
+    public void Delete_the_only_entry_leaves_a_valid_header_only_file()
+    {
+        var path = Path.Combine(_dir, "Tasks_Log.csv");
+        var log = TimeLogDocument.Load(path);
+        log.Append(new TimeLogEntry
+        {
+            TaskId = 5, TaskTitle = "Solo", Person = "tryst", Hours = 1, Comment = "x",
+            From = new DateTime(2026, 1, 1, 9, 0, 0), To = new DateTime(2026, 1, 1, 10, 0, 0), Type = "Adjusted",
+        });
+        log.Save();
+
+        // Re-load from disk, delete the sole entry, and persist the removal.
+        var doc = TimeLogDocument.Load(path);
+        doc.Delete(new TimeLogSelector { TaskId = 5 });
+        doc.Save();
+
+        var text = File.ReadAllText(path, Encoding.Unicode);
+        Assert.StartsWith("TODOTIMELOG VERSION 1\n", text);
+        Assert.Contains("Task ID\tTitle\tUser ID\t", text);
+        Assert.DoesNotContain("Solo", text);
+        Assert.DoesNotContain("\n\n", text); // header-only, no blank data line
+        Assert.Empty(TimeLogDocument.Load(path).Entries);
+    }
+
+    [Fact]
+    public void Update_truncates_new_times_to_minute_precision()
+    {
+        // The engine itself drops seconds, so a direct caller can't write a time the HH:mm row would
+        // silently truncate (which would then fail to match on a later read).
+        var log = TimeLogDocument.Parse(LatestSample);
+        var updated = log.Update(
+            new TimeLogSelector { TaskId = 771 },
+            new TimeLogEdit { From = new DateTime(2025, 1, 27, 10, 30, 45) });
+        Assert.Equal(new DateTime(2025, 1, 27, 10, 30, 0), updated.From);
+    }
+
+    [Fact]
+    public void Update_treats_a_whitespace_only_comment_as_blank()
+    {
+        // A whitespace-only comment is normalised to null — so it both clears the comment and cannot
+        // keep an otherwise-empty (zero-hour) entry valid, matching the append path's rule.
+        var log = TimeLogDocument.Load(Path.Combine(_dir, "Tasks_Log.csv"));
+        log.Append(new TimeLogEntry
+        {
+            TaskId = 0, Hours = 0, Comment = "note only",
+            From = new DateTime(2026, 2, 1), To = new DateTime(2026, 2, 1), Type = "Adjusted",
+        });
+        Assert.Throws<ArgumentException>(() => log.Update(
+            new TimeLogSelector { Comment = "note only" },
+            new TimeLogEdit { Comment = "   " }));
+    }
 }
