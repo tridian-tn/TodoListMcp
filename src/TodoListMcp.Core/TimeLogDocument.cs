@@ -188,10 +188,14 @@ public sealed class TimeLogDocument
             TaskId = old.TaskId,
             TaskTitle = old.TaskTitle,
             Person = edit.Person is null ? old.Person : NullIfEmpty(edit.Person.Trim()),
-            From = edit.From ?? old.From,
-            To = edit.To ?? old.To,
+            // Truncate to the minute: the row serialises as HH:mm, so seconds would be dropped on
+            // save and a re-read would no longer match what the caller set.
+            From = edit.From is DateTime f ? TruncateToMinute(f) : old.From,
+            To = edit.To is DateTime t ? TruncateToMinute(t) : old.To,
             Hours = edit.Hours ?? old.Hours,
-            Comment = edit.Comment is null ? old.Comment : NullIfEmpty(edit.Comment),
+            // A whitespace-only comment is treated as blank (null), matching the append path, so it
+            // can't keep an otherwise-empty entry "valid" on a comment that serialises as nothing.
+            Comment = edit.Comment is null ? old.Comment : NullIfBlank(edit.Comment),
             Type = edit.Type is null ? old.Type : NullIfEmpty(edit.Type.Trim()),
             Path = old.Path,
         };
@@ -394,6 +398,8 @@ public sealed class TimeLogDocument
     }
 
     private static string? NullIfEmpty(string s) => string.IsNullOrEmpty(s) ? null : s;
+
+    private static string? NullIfBlank(string s) => string.IsNullOrWhiteSpace(s) ? null : s;
 
     private static string ReadAllText(string path)
     {

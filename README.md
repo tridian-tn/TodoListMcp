@@ -331,9 +331,10 @@ rolled-up total. `log_time` appends an entry; `get_time_log` reads them back.
   single existing entry. The format has no stable row ID, so you **identify the entry by its current
   fields** (`taskId`, `from`, `to`, `person`, `comment`, `hours`); these are AND-combined and must
   match **exactly one** entry — no match, or an ambiguous one (more than one), is an error rather than
-  touching the wrong row. Read the entry with `get_time_log` first to get its exact fields. `update`
-  changes only the `new*` values you pass (any you omit keep their current value; pass an empty string
-  to clear a comment/person/type) and re-serialises that row in the latest layout; **untouched rows
+  touching the wrong row. Read the entry with `get_time_log` first to get its exact fields.
+  `update_time_log_entry` changes only the `new*` values you pass (any you omit keep their current
+  value; pass an empty string to clear a comment/person/type) and re-serialises that row in the latest
+  layout; **untouched rows
   still round-trip verbatim**. Both touch only the sidecar — a task's `TimeSpent` is never adjusted to
   follow an edit or delete. For example, to move today's entry to start at 10:00:
 
