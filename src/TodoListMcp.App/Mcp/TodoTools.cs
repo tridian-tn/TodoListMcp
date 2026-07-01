@@ -246,9 +246,9 @@ public sealed class TodoTools
     [McpServerTool(Name = "set_recurrence")]
     [Description("Set or replace a task's recurrence rule. Choose a pattern and supply the fields it needs: "
         + "everyNDays/everyNWeekdays/everyNWeeks/everyNMonths/everyNYears need interval; everyWeekday needs nothing; "
-        + "weeklyOnDays needs daysOfWeek (+ interval for every-N-weeks); monthlyOnDay needs dayOfMonth (+ interval); "
-        + "yearlyOnDate needs months and dayOfMonth. Note: setting recurrence does not advance the task; ToDoList "
-        + "does that when you complete it in the app.")]
+        + "weeklyOnDays needs daysOfWeek; monthlyOnDay needs dayOfMonth; yearlyOnDate needs months and dayOfMonth. "
+        + "For weeklyOnDays and monthlyOnDay, interval (weeks/months between occurrences) is optional and defaults to 1. "
+        + "Note: setting recurrence does not advance the task; ToDoList does that when you complete it in the app.")]
     public TodoTask SetRecurrence(
         [Description("The task ID.")] int id,
         [Description("Pattern: everyNDays, everyWeekday, everyNWeekdays, weeklyOnDays, everyNWeeks, monthlyOnDay, everyNMonths, yearlyOnDate, or everyNYears.")] string pattern,
@@ -423,10 +423,13 @@ public sealed class TodoTools
             "everynmonths" => RecurrencePattern.EveryNMonths,
             "yearlyondate" => RecurrencePattern.YearlyOnDate,
             "everynyears" => RecurrencePattern.EveryNYears,
+            // Recognised by the reader but not yet authorable — give a distinct, accurate message.
+            "monthlybyweekday" or "yearlybyweekday" or "monthlyonfirstlastweekday" => throw new ArgumentException(
+                $"Recurrence pattern '{value}' can be read but not authored yet. Authorable patterns: everyNDays, "
+                + "everyWeekday, everyNWeekdays, weeklyOnDays, everyNWeeks, monthlyOnDay, everyNMonths, yearlyOnDate, everyNYears."),
             _ => throw new ArgumentException(
                 $"Unknown recurrence pattern '{value}'. Use one of: everyNDays, everyWeekday, everyNWeekdays, "
-                + "weeklyOnDays, everyNWeeks, monthlyOnDay, everyNMonths, yearlyOnDate, everyNYears. "
-                + "(The Kth-weekday and first/last-weekday patterns can be read but not authored yet.)"),
+                + "weeklyOnDays, everyNWeeks, monthlyOnDay, everyNMonths, yearlyOnDate, everyNYears."),
         };
 
     private static RecurrenceRecalcFrom ParseRecalcFrom(string? value) =>

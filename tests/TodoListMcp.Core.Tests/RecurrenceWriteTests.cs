@@ -67,6 +67,20 @@ public class RecurrenceWriteTests
     }
 
     [Fact]
+    public void Weekly_on_days_interval_defaults_to_one_when_omitted()
+    {
+        var e = Built(new() { Pattern = RecurrencePattern.WeeklyOnDays, DaysOfWeek = new[] { "Monday" } });
+        Assert.Equal("1", (string?)e.Attribute("RECURSPECIFIC1"));
+    }
+
+    [Fact]
+    public void Monthly_on_day_interval_defaults_to_one_when_omitted()
+    {
+        var e = Built(new() { Pattern = RecurrencePattern.MonthlyOnDay, DayOfMonth = 15 });
+        Assert.Equal("1", (string?)e.Attribute("RECURSPECIFIC1"));
+    }
+
+    [Fact]
     public void Monthly_on_day_encodes_interval_and_day()
     {
         var e = Built(new() { Pattern = RecurrencePattern.MonthlyOnDay, Interval = 2, DayOfMonth = 15 });

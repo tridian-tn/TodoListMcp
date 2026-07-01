@@ -206,7 +206,12 @@ public sealed class SetRecurrenceRequest
 {
     public required RecurrencePattern Pattern { get; init; }
 
-    /// <summary>The interval N for the "every N …" patterns (days/weekdays/weeks/months/years). Must be ≥ 1.</summary>
+    /// <summary>
+    /// The interval N for the "every N …" patterns (days/weekdays/weeks/months/years), where it is
+    /// required and must be ≥ 1. For <see cref="RecurrencePattern.WeeklyOnDays"/> and
+    /// <see cref="RecurrencePattern.MonthlyOnDay"/> it is the (optional) weeks/months between
+    /// occurrences and defaults to 1; a supplied value must still be ≥ 1.
+    /// </summary>
     public int? Interval { get; init; }
 
     /// <summary>Weekday names (e.g. "Monday", or "Mon") for <see cref="RecurrencePattern.WeeklyOnDays"/>.</summary>

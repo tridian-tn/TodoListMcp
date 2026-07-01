@@ -256,11 +256,13 @@ public static class RecurrenceFormat
             case RecurrencePattern.EveryNWeekdays:
                 return (FreqEveryNWeekdays, PositiveInterval(req), 0, "Daily");
             case RecurrencePattern.WeeklyOnDays:
-                return (FreqWeeklyOnDays, PositiveInterval(req), EncodeWeekdays(req.DaysOfWeek), "Weekly");
+                // The days are the primary spec; the every-N-weeks interval defaults to 1.
+                return (FreqWeeklyOnDays, OptionalInterval(req), EncodeWeekdays(req.DaysOfWeek), "Weekly");
             case RecurrencePattern.EveryNWeeks:
                 return (FreqEveryNWeeks, PositiveInterval(req), 0, "Weekly");
             case RecurrencePattern.MonthlyOnDay:
-                return (FreqMonthlyOnDay, PositiveInterval(req), DayOfMonth(req), "Monthly");
+                // The day-of-month is the primary spec; the every-N-months interval defaults to 1.
+                return (FreqMonthlyOnDay, OptionalInterval(req), DayOfMonth(req), "Monthly");
             case RecurrencePattern.EveryNMonths:
                 return (FreqEveryNMonths, PositiveInterval(req), 0, "Monthly");
             case RecurrencePattern.YearlyOnDate:
@@ -276,6 +278,16 @@ public static class RecurrenceFormat
         req.Interval is int n && n > 0
             ? n
             : throw new ArgumentException($"Pattern '{req.Pattern}' requires an interval of at least 1.", nameof(req));
+
+    /// <summary>Interval for patterns where it's secondary (weekly-on-days, monthly-on-day): defaults to
+    /// 1 when omitted, but a supplied value must still be ≥ 1.</summary>
+    private static int OptionalInterval(SetRecurrenceRequest req) =>
+        req.Interval switch
+        {
+            null => 1,
+            int n when n > 0 => n,
+            _ => throw new ArgumentException($"Pattern '{req.Pattern}' interval must be at least 1.", nameof(req)),
+        };
 
     private static int DayOfMonth(SetRecurrenceRequest req) =>
         req.DayOfMonth is int d && d is >= 1 and <= 31
@@ -310,7 +322,9 @@ public static class RecurrenceFormat
         return mask;
     }
 
-    /// <summary>Matches a day/month name case-insensitively by full name or its first three letters.</summary>
+    /// <summary>Matches a day/month name case-insensitively by full name or a prefix of at least three
+    /// letters (e.g. "Mon", "Mond", "Monday" all match Monday). Safe here because day and month names
+    /// are unambiguous from their first three letters.</summary>
     private static bool Matches(string canonical, string input)
     {
         var s = input?.Trim() ?? "";
