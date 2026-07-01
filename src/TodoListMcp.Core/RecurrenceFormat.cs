@@ -94,6 +94,7 @@ public static class RecurrenceFormat
             Months = fields.Months,
             WeekOfMonth = fields.WeekOfMonth,
             Weekday = fields.Weekday,
+            PreserveWeekday = fields.PreserveWeekday,
             RecalculateFrom = ReadInt(e, "RECURFROM", 1) switch
             {
                 0 => "doneDate",
@@ -118,7 +119,8 @@ public static class RecurrenceFormat
         int? DayOfMonth = null,
         IReadOnlyList<string>? Months = null,
         string? WeekOfMonth = null,
-        string? Weekday = null);
+        string? Weekday = null,
+        bool? PreserveWeekday = null);
 
     private static (string Pattern, string Description, Fields Fields) Decode(int freq, int spec1, int spec2)
     {
@@ -151,7 +153,11 @@ public static class RecurrenceFormat
                     new Fields(Interval: spec1, DayOfMonth: spec2));
 
             case FreqEveryNMonths:
-                return ("everyNMonths", EveryText("month", spec1), new Fields(Interval: spec1));
+            {
+                var preserve = spec2 != 0;
+                return ("everyNMonths", EveryText("month", spec1) + PreserveSuffix(preserve),
+                    new Fields(Interval: spec1, PreserveWeekday: preserve));
+            }
 
             case FreqMonthlyByWeekday:
             {
@@ -179,7 +185,11 @@ public static class RecurrenceFormat
             }
 
             case FreqEveryNYears:
-                return ("everyNYears", EveryText("year", spec1), new Fields(Interval: spec1));
+            {
+                var preserve = spec2 != 0;
+                return ("everyNYears", EveryText("year", spec1) + PreserveSuffix(preserve),
+                    new Fields(Interval: spec1, PreserveWeekday: preserve));
+            }
 
             case FreqYearlyByWeekday:
             {
@@ -222,6 +232,9 @@ public static class RecurrenceFormat
 
     private static string EverySuffix(string unit, int n) =>
         n <= 1 ? "" : $", every {n} {unit}s";
+
+    private static string PreserveSuffix(bool preserveWeekday) =>
+        preserveWeekday ? ", preserving weekday" : "";
 
     private static int? NullIfInfinite(int n) => n < 0 ? null : n;
 

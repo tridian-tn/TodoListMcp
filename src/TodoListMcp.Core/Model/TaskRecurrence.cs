@@ -44,6 +44,13 @@ public sealed class TaskRecurrence
     /// <summary>The single weekday name for the by-weekday patterns; null otherwise.</summary>
     public string? Weekday { get; init; }
 
+    /// <summary>
+    /// For the interval-only monthly/yearly patterns (<c>everyNMonths</c>, <c>everyNYears</c>),
+    /// whether ToDoList keeps the same weekday rather than the same day-of-month when advancing (the
+    /// RECURSPECIFIC2 preserve-weekday flag). Null for patterns where that slot carries other data.
+    /// </summary>
+    public bool? PreserveWeekday { get; init; }
+
     /// <summary>What the next occurrence is calculated from: "dueDate" (default), "doneDate", or
     /// "startDate" (the RECURFROM attribute).</summary>
     public string RecalculateFrom { get; init; } = "dueDate";

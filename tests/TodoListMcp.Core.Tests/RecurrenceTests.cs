@@ -120,10 +120,20 @@ public class RecurrenceTests
     [Fact]
     public void Every_n_months()
     {
-        var r = Read("<RECURRENCE RECURFREQ=\"13\" RECURSPECIFIC1=\"6\">Monthly</RECURRENCE>");
+        var r = Read("<RECURRENCE RECURFREQ=\"13\" RECURSPECIFIC1=\"6\" RECURSPECIFIC2=\"0\">Monthly</RECURRENCE>");
         Assert.Equal("everyNMonths", r.Pattern);
         Assert.Equal(6, r.Interval);
         Assert.Equal("Every 6 months", r.Description);
+        Assert.False(r.PreserveWeekday);
+    }
+
+    [Fact]
+    public void Every_n_months_preserving_weekday()
+    {
+        // spec2 is the preserve-weekday flag for this frequency; a set flag must not be dropped.
+        var r = Read("<RECURRENCE RECURFREQ=\"13\" RECURSPECIFIC1=\"6\" RECURSPECIFIC2=\"1\">Monthly</RECURRENCE>");
+        Assert.True(r.PreserveWeekday);
+        Assert.Equal("Every 6 months, preserving weekday", r.Description);
     }
 
     [Fact]
@@ -188,10 +198,26 @@ public class RecurrenceTests
     [Fact]
     public void Every_n_years()
     {
-        var r = Read("<RECURRENCE RECURFREQ=\"14\" RECURSPECIFIC1=\"2\">Yearly</RECURRENCE>");
+        var r = Read("<RECURRENCE RECURFREQ=\"14\" RECURSPECIFIC1=\"2\" RECURSPECIFIC2=\"0\">Yearly</RECURRENCE>");
         Assert.Equal("everyNYears", r.Pattern);
         Assert.Equal(2, r.Interval);
         Assert.Equal("Every 2 years", r.Description);
+        Assert.False(r.PreserveWeekday);
+    }
+
+    [Fact]
+    public void Every_n_years_preserving_weekday()
+    {
+        var r = Read("<RECURRENCE RECURFREQ=\"14\" RECURSPECIFIC1=\"2\" RECURSPECIFIC2=\"1\">Yearly</RECURRENCE>");
+        Assert.True(r.PreserveWeekday);
+        Assert.Equal("Every 2 years, preserving weekday", r.Description);
+    }
+
+    [Fact]
+    public void Preserve_weekday_is_null_for_patterns_that_do_not_use_it()
+    {
+        var r = Read("<RECURRENCE RECURFREQ=\"1\" RECURSPECIFIC1=\"3\">Daily</RECURRENCE>");
+        Assert.Null(r.PreserveWeekday);
     }
 
     [Fact]
