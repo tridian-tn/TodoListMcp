@@ -525,6 +525,14 @@ public class TimeLogTests : IDisposable
     }
 
     [Fact]
+    public void CountMatches_rejects_an_empty_selector()
+    {
+        // Same contract as ResolveSingle: an empty selector is an error, not a match-everything count.
+        var log = TimeLogDocument.Parse(LatestSample);
+        Assert.Throws<ArgumentException>(() => log.CountMatches(new TimeLogSelector()));
+    }
+
+    [Fact]
     public void SaveAs_creates_missing_parent_directories()
     {
         // Separate-mode logs live in a <base>\ subfolder that may not exist yet on the first write.

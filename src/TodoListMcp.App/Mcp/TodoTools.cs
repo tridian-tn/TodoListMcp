@@ -26,7 +26,7 @@ public sealed class TodoTools
             f.Alias,
             f.Path,
             f.Default,
-            LogMode = _manager.EffectiveLogMode(f).ToString(),
+            LogMode = _manager.EffectiveLogMode(f).ToString().ToLowerInvariant(),
         }).ToArray();
 
     [McpServerTool(Name = "get_tasks")]

@@ -232,6 +232,9 @@ public sealed class TimeLogDocument
     public int CountMatches(TimeLogSelector selector)
     {
         if (selector is null) throw new ArgumentNullException(nameof(selector));
+        if (!selector.HasAnyCriterion)
+            throw new ArgumentException(
+                "A time-log selector must supply at least one matching field.", nameof(selector));
         return _rows.Count(r => Matches(r.Entry, selector));
     }
 

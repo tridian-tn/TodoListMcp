@@ -37,11 +37,18 @@ internal static class TimeLogPaths
     public static string WriteTarget(string tdlPath, LogMode mode, int taskId) =>
         mode == LogMode.Separate ? Separate(tdlPath, taskId) : Combined(tdlPath);
 
-    /// <summary>True when any per-task <c>&lt;taskID&gt;_Log.csv</c> files exist for this list.</summary>
+    /// <summary>
+    /// True when any per-task <c>&lt;taskID&gt;_Log.csv</c> files exist for this list. Best-effort: it
+    /// only backs the advisory layout-mismatch warning, so an inaccessible folder yields false rather
+    /// than throwing and aborting a log write.
+    /// </summary>
     public static bool SeparateFilesExist(string tdlPath)
     {
         var folder = SeparateFolder(tdlPath);
-        return Directory.Exists(folder) && Directory.EnumerateFiles(folder, "*_Log.csv").Any();
+        if (!Directory.Exists(folder)) return false;
+        try { return Directory.EnumerateFiles(folder, "*_Log.csv").Any(); }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
     }
 
     /// <summary>
